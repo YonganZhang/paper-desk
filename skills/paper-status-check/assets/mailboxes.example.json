@@ -1,0 +1,45 @@
+{
+  "_comment": "复制到 ~/.config/paper-desk/mailboxes.json（或用环境变量 PAPER_MAILBOXES 指定路径），chmod 600。配置里不写密码真值，只写环境变量名或取密码命令。字段说明见 references/config.md。",
+  "mailboxes": {
+    "alice@example.com": {
+      "imap": "imap.example.com:993",
+      "smtp": "smtp.example.com:465",
+      "smtp_tls": "ssl",
+      "password_env": "MAIL_ALICE_PASSWORD",
+      "readable": true,
+      "checked_at": "2026-01-15",
+      "owner": "张三",
+      "purpose": "本人专用：投稿账号、期刊来信",
+      "author_links": [
+        {"person": "张三", "role": "投稿人/通讯", "papers": ["P01", "P03"]}
+      ]
+    },
+    "spare@example.org": {
+      "imap": "imap.example.org",
+      "smtp": "smtp.example.org:587",
+      "smtp_tls": "starttls",
+      "username": "spare",
+      "password_cmd": "pass show mail/spare",
+      "readable": true,
+      "owner": "课题组",
+      "purpose": "临时合作者备用",
+      "author_links": [
+        {"person": "李四", "role": "合著者", "papers": ["P03"]}
+      ],
+      "exceptions": [
+        {"person": "李四", "papers": ["P03"], "scope": "仅 P03 投稿期间",
+         "reason": "李四暂无可读邮箱，录用前请改回他本人的邮箱。", "remind": "near-acceptance"}
+      ]
+    },
+    "oauth-box@example.edu": {
+      "imap": "outlook.office365.com:993",
+      "smtp": "smtp.office365.com:587",
+      "smtp_tls": "starttls",
+      "auth": "xoauth2",
+      "token_cmd": "my-oauth-helper token oauth-box@example.edu",
+      "readable": false,
+      "owner": "王五",
+      "purpose": "OAuth2 示例：token_cmd 输出当前有效的 access token，续期由该命令负责"
+    }
+  }
+}

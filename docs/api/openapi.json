@@ -1,0 +1,2433 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "paper-desk 投稿台账维护 API",
+    "version": "1.4.0",
+    "description": "查询与维护论文、期刊进展、审稿意见、附件版本。普通查询脱敏；凭证读取、下载与正文检查需要写 token。所有请求需非默认 User-Agent。CLI 与 SSH 操作见 docs/api/CLI.md。"
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:8611/api/v1",
+      "description": "默认本机地址；公网部署时替换为你的域名，例如 https://paper.example.org/api/v1"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "readToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "只读 token，仅 GET"
+      },
+      "writeToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "写 token，可读可写"
+      }
+    },
+    "schemas": {
+      "Paper": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "编号。P##/X##/F## 只是分配时的历史分组，**不可据此判断当前是否在投**，请用 status"
+          },
+          "title": {
+            "type": "string"
+          },
+          "title_cn": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "撰写中",
+              "投稿中",
+              "已录用",
+              "被拒",
+              "撤稿"
+            ],
+            "description": "等于最新一次投稿的状态（sync_paper_status 同步）；无投稿记录时为撰写中"
+          },
+          "authors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "作者顺序，index 0 = 第一作者。空数组=未录入，不代表没有作者"
+          },
+          "corresponding": {
+            "type": "string"
+          },
+          "lead_author": {
+            "type": "string",
+            "description": "跟进人姓名（组内负责人，非学术角色）。谁跟进、AI 怎么做看 follow_mode"
+          },
+          "follow_mode": {
+            "type": "string",
+            "enum": [
+              "ai",
+              "self",
+              "student",
+              "watch",
+              "partner",
+              ""
+            ],
+            "description": "跟进方式（唯一口径）：ai=AI代查，self=本人自查（AI 跳过），student=学生自管（AI 不查不提醒），watch=学生自管·AI盯截止（只提醒返修截止），partner=合作方自管，空串=未登记。决定跟进计划 active：ai/watch→true，self/student/partner→false，未登记沿用存储值"
+          },
+          "follow_mode_label": {
+            "type": "string",
+            "enum": [
+              "AI代查",
+              "本人自查",
+              "学生自管",
+              "学生自管·AI盯截止",
+              "合作方自管",
+              "未登记"
+            ],
+            "description": "follow_mode 的中文名"
+          },
+          "my_author_position": {
+            "type": "string",
+            "enum": [
+              "第一作者",
+              "第二作者",
+              "第三作者",
+              "第四作者",
+              "其他位置",
+              "非作者",
+              ""
+            ],
+            "description": "「本人」（PAPER_DESK_OWNER_NAMES 配置的台账主人）的位次。空串=管理员尚未标注，不等于不是作者"
+          },
+          "i_am_corresponding": {
+            "type": "boolean",
+            "description": "与位次独立，可同时为一作+通讯"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "主序列",
+              "其他论文（不计入主序列）",
+              "合作方论文"
+            ]
+          },
+          "submission_count": {
+            "type": "integer",
+            "description": ">1 即转投过；转投次数 = submission_count - 1"
+          },
+          "current_journal": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "current_submission": {
+            "allOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "seq": {
+                    "type": "integer",
+                    "description": "第几次投稿。1=正式首投，2=转投第一家，依此类推"
+                  },
+                  "journal": {
+                    "type": "string"
+                  },
+                  "submit_date": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date",
+                    "description": "YYYY-MM-DD，无时间无时区；空=没填"
+                  },
+                  "manuscript_id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "投稿中",
+                      "已录用",
+                      "被拒",
+                      "撤稿",
+                      "已转投"
+                    ],
+                    "description": "仅 is_current=true 的那条是真实存储值；其余恒为「已转投」（结构推导）"
+                  },
+                  "is_current": {
+                    "type": "boolean",
+                    "description": "是否最新一次投稿。判断「现在投在哪」只看这条"
+                  },
+                  "result_date": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "format": "date"
+                  },
+                  "site_url": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "notes": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            ],
+            "nullable": true,
+            "description": "等于 submissions[0]；无投稿记录时 null"
+          },
+          "days_since_current_submit": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "当前投稿 submit_date 距今自然日数（按服务器本地日期）。submit_date 为空时 null"
+          },
+          "submissions": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seq": {
+                  "type": "integer",
+                  "description": "第几次投稿。1=正式首投，2=转投第一家，依此类推"
+                },
+                "journal": {
+                  "type": "string"
+                },
+                "submit_date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date",
+                  "description": "YYYY-MM-DD，无时间无时区；空=没填"
+                },
+                "manuscript_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "投稿中",
+                    "已录用",
+                    "被拒",
+                    "撤稿",
+                    "已转投"
+                  ],
+                  "description": "仅 is_current=true 的那条是真实存储值；其余恒为「已转投」（结构推导）"
+                },
+                "is_current": {
+                  "type": "boolean",
+                  "description": "是否最新一次投稿。判断「现在投在哪」只看这条"
+                },
+                "result_date": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "date"
+                },
+                "site_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "notes": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              }
+            },
+            "description": "按 seq 倒序，[0] 最新"
+          },
+          "current_note": {
+            "type": "string",
+            "description": "当前情况：一两句话，可整段覆盖（已脱敏）"
+          },
+          "notes": {
+            "type": "string",
+            "description": "历史记录：只追加的备注（已脱敏）"
+          },
+          "updated_at": {
+            "type": "string",
+            "description": "YYYY-MM-DD HH:MM:SS，服务器本地时间"
+          },
+          "review_stage": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_progress_date": {
+            "type": "string",
+            "nullable": true
+          },
+          "last_checked_date": {
+            "type": "string",
+            "nullable": true
+          },
+          "days_without_progress": {
+            "type": "integer",
+            "nullable": true
+          },
+          "days_since_last_check": {
+            "type": "integer",
+            "nullable": true
+          },
+          "revision_due_date": {
+            "type": "string",
+            "nullable": true
+          },
+          "revision_days_remaining": {
+            "type": "integer",
+            "nullable": true
+          },
+          "progress_date_basis": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "Submission": {
+        "type": "object",
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "description": "第几次投稿。1=正式首投，2=转投第一家，依此类推"
+          },
+          "journal": {
+            "type": "string"
+          },
+          "submit_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date",
+            "description": "YYYY-MM-DD，无时间无时区；空=没填"
+          },
+          "manuscript_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "投稿中",
+              "已录用",
+              "被拒",
+              "撤稿",
+              "已转投"
+            ],
+            "description": "仅 is_current=true 的那条是真实存储值；其余恒为「已转投」（结构推导）"
+          },
+          "is_current": {
+            "type": "boolean",
+            "description": "是否最新一次投稿。判断「现在投在哪」只看这条"
+          },
+          "result_date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date"
+          },
+          "site_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "",
+              "被拒",
+              "撤回",
+              "编辑建议转投",
+              "编辑移除",
+              "未关闭"
+            ],
+            "description": "旧轮真实结局；空=未记录。未关闭=原刊流程仍挂着（防一稿多投）"
+          },
+          "display_status": {
+            "type": "string",
+            "description": "给人看的状态：当前轮=status；旧轮按 outcome 显示 已转投 / 已转投（…）/ 未关闭（原刊流程仍在）"
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "required": [
+          "kind",
+          "event_date"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "progress",
+              "check",
+              "review",
+              "response",
+              "note"
+            ]
+          },
+          "event_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "",
+              "未标注",
+              "编辑处理中",
+              "外审中",
+              "等待决定",
+              "大修",
+              "小修",
+              "返修已提交",
+              "已录用",
+              "被拒",
+              "撤稿"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 500000
+          },
+          "reviewer": {
+            "type": "string"
+          },
+          "round": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "due_date": {
+            "type": "string"
+          }
+        }
+      },
+      "CredentialsPatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "site_url": {
+            "type": "string"
+          },
+          "sys_account": {
+            "type": "string"
+          },
+          "sys_password": {
+            "type": "string"
+          },
+          "sys_cookie": {
+            "type": "string"
+          },
+          "extra": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "Followup": {
+        "type": "object",
+        "description": "逐篇跟进计划（平铺字段）。stage/due_at/active 为台账推导后的输出值，存储原值见 stored_*",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "paper_id": {
+            "type": "integer"
+          },
+          "version": {
+            "type": "integer",
+            "description": "乐观锁版本；0=尚无记录"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "unverified",
+              "draft",
+              "waiting_support",
+              "awaiting_author",
+              "submitted",
+              "under_review",
+              "revision_required",
+              "resubmit_ready",
+              "awaiting_close",
+              "paused",
+              "accepted",
+              "closed"
+            ],
+            "description": "推导值：撰写中→draft；已录用→accepted；撤稿→closed；被拒→resubmit_ready；投稿中按当前轮审稿阶段：大修/小修→revision_required，外审中/等待决定/返修已提交→under_review，编辑处理中/未标注/空→submitted。论文投稿中且存储值为 awaiting_author/waiting_support/paused/awaiting_close 时保留存储值"
+          },
+          "stage_source": {
+            "type": "string",
+            "enum": [
+              "ledger",
+              "followup"
+            ]
+          },
+          "stage_label": {
+            "type": "string"
+          },
+          "stored_stage": {
+            "type": "string",
+            "enum": [
+              "unverified",
+              "draft",
+              "waiting_support",
+              "awaiting_author",
+              "submitted",
+              "under_review",
+              "revision_required",
+              "resubmit_ready",
+              "awaiting_close",
+              "paused",
+              "accepted",
+              "closed"
+            ],
+            "description": "跟进计划存储的 stage 原值"
+          },
+          "review_stage": {
+            "type": "string",
+            "nullable": true,
+            "description": "台账当前轮审稿阶段（同 Paper.review_stage）"
+          },
+          "due_at": {
+            "type": "string",
+            "description": "论文有 revision_due_date 时为它（ISO，PAPER_DESK_TZ 时区 00:00），否则为存储值；空串=无"
+          },
+          "due_source": {
+            "type": "string",
+            "enum": [
+              "ledger",
+              "followup"
+            ]
+          },
+          "stored_due_at": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "由 follow_mode 推导；未登记时为存储值"
+          },
+          "stored_active": {
+            "type": "boolean"
+          },
+          "follow_mode": {
+            "type": "string",
+            "enum": [
+              "ai",
+              "self",
+              "student",
+              "watch",
+              "partner",
+              ""
+            ]
+          },
+          "follow_mode_label": {
+            "type": "string",
+            "enum": [
+              "AI代查",
+              "本人自查",
+              "学生自管",
+              "学生自管·AI盯截止",
+              "合作方自管",
+              "未登记"
+            ]
+          },
+          "paper_status": {
+            "type": "string"
+          },
+          "lead_author": {
+            "type": "string"
+          },
+          "current_journal": {
+            "type": "string"
+          },
+          "ledger_journal": {
+            "type": "string"
+          },
+          "target_journal": {
+            "type": "string"
+          },
+          "blocked_reason": {
+            "type": "string"
+          },
+          "waiting_for": {
+            "type": "string"
+          },
+          "next_action": {
+            "type": "string"
+          },
+          "action_owner": {
+            "type": "string",
+            "description": "自由文本执行人；脚本判断跟进方式请读 follow_mode"
+          },
+          "completion_condition": {
+            "type": "string"
+          },
+          "completion_evidence": {
+            "type": "string"
+          },
+          "decision_required": {
+            "type": "boolean"
+          },
+          "decision_request": {
+            "type": "string"
+          },
+          "last_progress_at": {
+            "type": "string"
+          },
+          "last_checked_at": {
+            "type": "string"
+          },
+          "waiting_since": {
+            "type": "string"
+          },
+          "next_check_at": {
+            "type": "string"
+          },
+          "stale_after_days": {
+            "type": "integer"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "normal",
+              "high",
+              "urgent"
+            ]
+          },
+          "archive_reason": {
+            "type": "string"
+          },
+          "stalled": {
+            "type": "boolean"
+          },
+          "needs_attention": {
+            "type": "boolean"
+          },
+          "due_in_days": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "FollowupPatch": {
+        "type": "object",
+        "required": [
+          "expected_version"
+        ],
+        "description": "部分更新。stage 只能写流程型阶段；已有返修截止时 due_at 只能写相同日期或空串；follow_mode 已登记时 active 只能写与之一致的值。import 接口不做这三条校验",
+        "properties": {
+          "expected_version": {
+            "type": "integer"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "unverified",
+              "waiting_support",
+              "awaiting_author",
+              "awaiting_close",
+              "paused"
+            ],
+            "description": "unverified=跟随台账。写 draft/submitted/under_review/revision_required/resubmit_ready/accepted/closed 返回 422（请用 paper progress）"
+          },
+          "due_at": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "next_action": {
+            "type": "string"
+          },
+          "waiting_for": {
+            "type": "string"
+          },
+          "blocked_reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "security": [
+    {
+      "readToken": []
+    },
+    {
+      "writeToken": []
+    }
+  ],
+  "paths": {
+    "/papers": {
+      "get": {
+        "summary": "论文列表",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "按论文状态过滤"
+          },
+          {
+            "name": "position",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "按「本人」的作者位次过滤"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "标题/中文名/编号 模糊搜"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": {
+                      "type": "integer"
+                    },
+                    "server_time": {
+                      "type": "string"
+                    },
+                    "timezone": {
+                      "type": "string"
+                    },
+                    "papers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Paper"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "token 缺失或不对"
+          },
+          "503": {
+            "description": "服务端尚未生成 token"
+          }
+        }
+      },
+      "post": {
+        "summary": "新建论文",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "title_cn": {
+                    "type": "string"
+                  },
+                  "lead_author": {
+                    "type": "string"
+                  },
+                  "corresponding": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "author_pos": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "authors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "也接受换行分隔的字符串"
+                  },
+                  "is_corresponding": {
+                    "type": "boolean"
+                  },
+                  "current_note": {
+                    "type": "string",
+                    "description": "当前情况，整段覆盖；学生在网页可改自己的论文（口径同 notes）"
+                  },
+                  "follow_mode": {
+                    "type": "string",
+                    "enum": [
+                      "ai",
+                      "self",
+                      "student",
+                      "watch",
+                      "partner",
+                      "",
+                      "none",
+                      "AI代查",
+                      "本人自查",
+                      "学生自管",
+                      "学生自管·AI盯截止",
+                      "合作方自管",
+                      "未登记"
+                    ],
+                    "description": "跟进方式；接受内部值、中文名或 none（=未登记），其他值 422。网页仅管理员可改（同 category）。写入时同步跟进计划 active（新版本 + 修订记录）"
+                  }
+                },
+                "required": [
+                  "title"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "已创建",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paper"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "用的是只读 token"
+          },
+          "422": {
+            "description": "字段不合法"
+          }
+        }
+      }
+    },
+    "/papers/{code}": {
+      "get": {
+        "summary": "单篇详情",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "编号，大小写不敏感"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paper"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "token 缺失或不对"
+          },
+          "404": {
+            "description": "编号不存在"
+          }
+        }
+      },
+      "patch": {
+        "summary": "改论文字段（部分更新）",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "title_cn": {
+                    "type": "string"
+                  },
+                  "lead_author": {
+                    "type": "string"
+                  },
+                  "corresponding": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "author_pos": {
+                    "type": "string"
+                  },
+                  "code": {
+                    "type": "string"
+                  },
+                  "category": {
+                    "type": "string"
+                  },
+                  "authors": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "也接受换行分隔的字符串"
+                  },
+                  "is_corresponding": {
+                    "type": "boolean"
+                  },
+                  "current_note": {
+                    "type": "string",
+                    "description": "当前情况，整段覆盖；学生在网页可改自己的论文（口径同 notes）"
+                  },
+                  "follow_mode": {
+                    "type": "string",
+                    "enum": [
+                      "ai",
+                      "self",
+                      "student",
+                      "watch",
+                      "partner",
+                      "",
+                      "none",
+                      "AI代查",
+                      "本人自查",
+                      "学生自管",
+                      "学生自管·AI盯截止",
+                      "合作方自管",
+                      "未登记"
+                    ],
+                    "description": "跟进方式；接受内部值、中文名或 none（=未登记），其他值 422。网页仅管理员可改（同 category）。写入时同步跟进计划 active（新版本 + 修订记录）"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paper"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "只读 token"
+          },
+          "404": {
+            "description": "编号不存在"
+          },
+          "422": {
+            "description": "字段不可写或值不合法"
+          }
+        }
+      },
+      "delete": {
+        "summary": "删整篇（连投稿记录和附件）",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "confirm",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "必须等于论文编号，否则 428。删前服务端自动打数据库快照"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已删除，返回快照文件名"
+          },
+          "428": {
+            "description": "缺 confirm"
+          }
+        }
+      }
+    },
+    "/stats": {
+      "get": {
+        "summary": "统计",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "total": {
+                      "type": "integer"
+                    },
+                    "by_status": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    },
+                    "by_author_position": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "integer"
+                      }
+                    },
+                    "corresponding_count": {
+                      "type": "integer"
+                    },
+                    "generated_at": {
+                      "type": "string"
+                    },
+                    "timezone": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "token 缺失或不对"
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "summary": "本文件（需同一 token）",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/papers/{code}/submissions": {
+      "post": {
+        "summary": "新增一轮投稿（转投）",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "description": "旧轮自动成为历史，不会被删；论文状态自动同步为新轮的状态。",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "journal": {
+                    "type": "string"
+                  },
+                  "site_url": {
+                    "type": "string"
+                  },
+                  "sys_account": {
+                    "type": "string"
+                  },
+                  "sys_password": {
+                    "type": "string"
+                  },
+                  "submit_date": {
+                    "type": "string"
+                  },
+                  "manuscript_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "result_date": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "history": {
+                    "type": "boolean",
+                    "description": "true=补录更早的一轮：按 submit_date 插到对应位置，后面轮次顺延；晚于当前轮时 422"
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "",
+                      "被拒",
+                      "撤回",
+                      "编辑建议转投",
+                      "编辑移除",
+                      "未关闭"
+                    ]
+                  }
+                },
+                "required": [
+                  "journal"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "已新增",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paper"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "journal 缺失或状态不合法"
+          }
+        }
+      }
+    },
+    "/submissions/{sid}": {
+      "patch": {
+        "summary": "改某条投稿记录",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "journal": {
+                    "type": "string"
+                  },
+                  "site_url": {
+                    "type": "string"
+                  },
+                  "sys_account": {
+                    "type": "string"
+                  },
+                  "sys_password": {
+                    "type": "string"
+                  },
+                  "submit_date": {
+                    "type": "string"
+                  },
+                  "manuscript_id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "result_date": {
+                    "type": "string"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "",
+                      "被拒",
+                      "撤回",
+                      "编辑建议转投",
+                      "编辑移除",
+                      "未关闭"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Paper"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "记录不存在"
+          }
+        }
+      },
+      "delete": {
+        "summary": "删一条投稿记录",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "sid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "confirm",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "必须等于 sid，否则 428"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已删除，返回快照文件名"
+          },
+          "428": {
+            "description": "缺 confirm"
+          }
+        }
+      }
+    },
+    "/papers/{code}/files": {
+      "post": {
+        "summary": "上传附件（投稿包 / 修改稿 / LaTeX）",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "description": "multipart/form-data。单文件上限 100 MB；经 CDN 时 CDN 自身也可能限制请求体大小（如 Cloudflare 免费版约 100 MB），大包建议 SSH 进机器用 `paper upload`。",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "f": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": "说明，如「R1 修改稿」"
+                  },
+                  "submission_seq": {
+                    "type": "string",
+                    "description": "关联第几轮投稿，可空"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "latex",
+                      "manuscript",
+                      "review",
+                      "response",
+                      "supplement",
+                      "other"
+                    ],
+                    "default": "other"
+                  }
+                },
+                "required": [
+                  "f"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "已上传"
+          },
+          "413": {
+            "description": "超过大小上限"
+          }
+        }
+      },
+      "get": {
+        "summary": "附件版本列表，按 ID 降序；latest 为最大 ID",
+        "security": [
+          {
+            "readToken": []
+          },
+          {
+            "writeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "403": {
+            "description": "权限不足"
+          },
+          "404": {
+            "description": "目标不存在"
+          },
+          "422": {
+            "description": "输入非法"
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/papers/{code}/credentials": {
+      "get": {
+        "summary": "读取敏感凭证；写 token，no-store，记录访问审计",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "403": {
+            "description": "权限不足"
+          },
+          "404": {
+            "description": "目标不存在"
+          },
+          "422": {
+            "description": "输入非法"
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      },
+      "patch": {
+        "summary": "按字段更新凭证；extra 整体替换，未提供字段保留",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "403": {
+            "description": "权限不足"
+          },
+          "404": {
+            "description": "目标不存在"
+          },
+          "422": {
+            "description": "输入非法"
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "site_url": {
+                    "type": "string"
+                  },
+                  "sys_account": {
+                    "type": "string"
+                  },
+                  "sys_password": {
+                    "type": "string"
+                  },
+                  "sys_cookie": {
+                    "type": "string"
+                  },
+                  "extra": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/papers/{code}/events": {
+      "get": {
+        "summary": "读取所有轮次时间线；可筛轮次与 kind",
+        "security": [
+          {
+            "readToken": []
+          },
+          {
+            "writeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "403": {
+            "description": "权限不足"
+          },
+          "404": {
+            "description": "目标不存在"
+          },
+          "422": {
+            "description": "输入非法"
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "追加审稿/进展/核查/回复事件；默认当前投稿轮",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "403": {
+            "description": "权限不足"
+          },
+          "404": {
+            "description": "目标不存在"
+          },
+          "422": {
+            "description": "输入非法"
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "kind",
+                  "event_date"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "progress",
+                      "check",
+                      "review",
+                      "response",
+                      "note"
+                    ]
+                  },
+                  "event_date": {
+                    "type": "string",
+                    "format": "date"
+                  },
+                  "stage": {
+                    "type": "string",
+                    "enum": [
+                      "",
+                      "未标注",
+                      "编辑处理中",
+                      "外审中",
+                      "等待决定",
+                      "大修",
+                      "小修",
+                      "返修已提交",
+                      "已录用",
+                      "被拒",
+                      "撤稿"
+                    ]
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 500000
+                  },
+                  "reviewer": {
+                    "type": "string"
+                  },
+                  "round": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "due_date": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/events/{eid}": {
+      "patch": {
+        "summary": "修订事件正文/审稿人/轮数/截止日期；新进展用 POST",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "403": {
+            "description": "权限不足"
+          },
+          "404": {
+            "description": "目标不存在"
+          },
+          "422": {
+            "description": "输入非法"
+          }
+        },
+        "parameters": [
+          {
+            "name": "eid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "maxLength": 500000
+                  },
+                  "reviewer": {
+                    "type": "string"
+                  },
+                  "round": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "due_date": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/papers/{code}/files/latest/download": {
+      "get": {
+        "summary": "下载筛选范围内最新上传版本原件；写 token",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "403": {
+            "description": "权限不足"
+          },
+          "404": {
+            "description": "目标不存在"
+          },
+          "422": {
+            "description": "输入非法"
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/papers/{code}/files/{fid}/download": {
+      "get": {
+        "summary": "下载指定文件 ID 原件；校验论文归属",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "403": {
+            "description": "权限不足"
+          },
+          "404": {
+            "description": "目标不存在"
+          },
+          "422": {
+            "description": "输入非法"
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ]
+      }
+    },
+    "/papers/{code}/files/{fid}": {
+      "patch": {
+        "summary": "给历史附件分类或改说明，不改原件",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "403": {
+            "description": "权限不足"
+          },
+          "404": {
+            "description": "目标不存在"
+          },
+          "422": {
+            "description": "输入非法"
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "fid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "latex",
+                      "manuscript",
+                      "review",
+                      "response",
+                      "supplement",
+                      "other"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "submission_seq": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/papers/{code}/document": {
+      "get": {
+        "summary": "正文与静态检查；默认最新 latex，支持 ZIP/TAR/PDF/TEX，不执行 TeX",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败"
+          },
+          "403": {
+            "description": "权限不足"
+          },
+          "404": {
+            "description": "目标不存在"
+          },
+          "422": {
+            "description": "输入非法"
+          }
+        },
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "seq",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "fid",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "member",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "all_text",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ]
+      }
+    },
+    "/journal-accounts": {
+      "get": {
+        "summary": "Administrator private encrypted journal accounts; write token required",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; Cache-Control no-store"
+          },
+          "403": {
+            "description": "Read token denied"
+          }
+        }
+      }
+    },
+    "/journal-accounts/{name}": {
+      "get": {
+        "summary": "Administrator private encrypted journal accounts; write token required",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; Cache-Control no-store"
+          },
+          "403": {
+            "description": "Read token denied"
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reveal",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ]
+      },
+      "put": {
+        "summary": "Administrator private encrypted journal accounts; write token required",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; Cache-Control no-store"
+          },
+          "403": {
+            "description": "Read token denied"
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "url",
+                  "account",
+                  "password"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "url": {
+                    "type": "string"
+                  },
+                  "account": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/files/{fid}": {
+      "delete": {
+        "summary": "删除附件",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "description": "删记录和磁盘文件，写审计；删前打数据库快照（不含文件本身）。",
+        "parameters": [
+          {
+            "name": "fid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "confirm",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "必须等于 fid，否则 428"
+          },
+          {
+            "name": "paper",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "论文编号；给了就核对附件归属，不符 422"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已删除，返回快照文件名"
+          },
+          "422": {
+            "description": "附件不属于该论文"
+          },
+          "428": {
+            "description": "缺 confirm 或不等于 fid"
+          }
+        }
+      }
+    },
+    "/followups": {
+      "get": {
+        "summary": "跟进计划列表（推导后的 stage/due_at/active）",
+        "parameters": [
+          {
+            "name": "active",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "stage",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "description": "按推导后的 stage 过滤"
+          },
+          {
+            "name": "needs_attention",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "name": "follow_mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ai",
+                "self",
+                "student",
+                "watch",
+                "partner",
+                "none"
+              ]
+            },
+            "description": "按论文跟进方式过滤；none=未登记；非法值 422"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "papers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Followup"
+                      }
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "counts": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/papers/{code}/followup": {
+      "get": {
+        "summary": "单篇跟进计划",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "history",
+            "in": "query",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Followup"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "改跟进计划（乐观锁）",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowupPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Followup"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "expected_version 落后，未覆盖"
+          },
+          "422": {
+            "description": "字段不合法；写可推导 stage；已有返修截止时写不同 due_at；active 与 follow_mode 冲突"
+          }
+        }
+      },
+      "delete": {
+        "summary": "归档跟进计划",
+        "security": [
+          {
+            "writeToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "422": {
+            "description": "缺归档原因，或论文 follow_mode 推导 active=true（请用 paper edit --follow-mode）"
+          }
+        }
+      }
+    }
+  }
+}

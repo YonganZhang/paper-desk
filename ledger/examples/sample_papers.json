@@ -1,0 +1,49 @@
+{
+  "_comment": "全部为虚构样例，用于本地试用：python3 seed.py --samples。人名、邮箱、期刊、稿号都是编的。",
+  "roster": [
+    {"cn_name": "张三", "en_name": "San Zhang", "email": "zhangsan@example.com", "affiliation": "Example University", "role_note": "第一作者", "sort_order": 10},
+    {"cn_name": "", "en_name": "Alice Example", "email": "alice@example.com", "affiliation": "Example University", "role_note": "通讯作者", "sort_order": 20},
+    {"cn_name": "", "en_name": "Bob Example", "email": "bob@example.org", "affiliation": "Example Institute", "role_note": "合作者", "sort_order": 30}
+  ],
+  "papers": [
+    {
+      "code": "P01",
+      "title": "A Survey of Example Methods for Image Segmentation",
+      "title_cn": "图像分割方法综述",
+      "lead_author": "张三",
+      "authors": ["San Zhang", "Alice Example", "Bob Example"],
+      "corresponding": "Alice Example",
+      "author_pos": "第一作者",
+      "category": "main",
+      "follow_mode": "self",
+      "current_note": "外审中，等第二位审稿人意见",
+      "submissions": [
+        {"journal": "Journal of Example Studies", "site_url": "https://www.editorialmanager.com/example/", "submit_date": "2026-01-15", "manuscript_id": "JES-2026-0001", "status": "被拒", "result_date": "2026-03-02", "outcome": "被拒", "notes": "编辑认为范围不符"},
+        {"journal": "Example Letters", "site_url": "https://mc.manuscriptcentral.com/example", "submit_date": "2026-03-20", "manuscript_id": "EXL-2026-0042", "status": "投稿中"}
+      ]
+    },
+    {
+      "code": "P02",
+      "title": "Benchmarking Lightweight Models on Synthetic Data",
+      "title_cn": "轻量模型基准测试",
+      "lead_author": "张三",
+      "authors": ["San Zhang", "Bob Example"],
+      "author_pos": "第一作者",
+      "is_corresponding": true,
+      "status": "撰写中",
+      "current_note": "初稿第 3 节在写"
+    },
+    {
+      "code": "X01",
+      "title": "Technical Note Prepared for an Example Partner",
+      "title_cn": "合作单位技术说明",
+      "lead_author": "Bob Example",
+      "authors": ["Bob Example", "San Zhang"],
+      "author_pos": "第二作者",
+      "category": "extra",
+      "submissions": [
+        {"journal": "Example Engineering Reports", "submit_date": "2025-11-02", "manuscript_id": "EER-2025-0310", "status": "已录用", "result_date": "2026-02-10"}
+      ]
+    }
+  ]
+}

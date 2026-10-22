@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block title %}{{ paper.title }} · {{ site_title }}{% endblock %}
+{% block body %}
+
+<p class="small muted"><a href="/">← 回到论文台账</a></p>
+
+<div class="spread" style="margin-bottom:8px">
+  <div>
+    <h1 style="margin-bottom:6px">{% if paper.code %}<span class="seq" style="font-size:15px;vertical-align:middle">{{ paper.code }}</span> {% endif %}{{ paper.title }}</h1>
+    <div class="rowline small">
+      <span class="tag s-{{ paper.status }}">{{ paper.status }}</span>
+      {% if paper.title_cn %}<span class="muted">{{ paper.title_cn }}</span>{% endif %}
+      {% if user.role == 'admin' %}
+        {% if paper.author_pos %}<span class="tag">{{ owner_label }}：{{ paper.author_pos }}</span>{% endif %}
+        {% if paper.is_corresponding %}<span class="tag s-已录用">通讯作者</span>{% endif %}
+        {% if paper.category == 'extra' %}<span class="tag" style="background:#f2ecfd;color:#6a41c0">其他论文 · 不进主编号</span>{% endif %}
+        {% if paper.category == 'partner' %}<span class="tag" style="background:#eaf5f0;color:#24734f">合作方论文 · 不计入主序列</span>{% endif %}
+      {% endif %}
+      {% if paper.lead_author %}<span class="muted">负责人：{{ paper.lead_author }}</span>{% endif %}
+      {% if paper.follow_mode %}<span class="tag">跟进方式：{{ FOLLOW_MODES.get(paper.follow_mode, paper.follow_mode) }}</span>{% endif %}
+      {% if user.role == 'admin' %}<span class="muted">录入人：{{ paper.owner_name }}（@{{ paper.owner_username }}）</span>{% endif %}
+      {% if subs %}<span class="tag">第 {{ subs|length }} 次投稿{% if subs|length > 1 %} · 转投过 {{ subs|length - 1 }} 次{% endif %}</span>{% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="card tight" id="current-note">
+  <label style="margin:0">当前情况</label>
+  <div>{% if paper.current_note %}{{ paper.current_note }}{% else %}<span class="muted">未填写（在「论文信息 → 编辑」里写一两句，可整段覆盖；历史记录写在备注）</span>{% endif %}</div>
+</div>
+
+{% if followup is defined %}{% include "_followup_detail.html" %}{% endif %}
+
+<!-- ============ 论文信息 ============ -->
+<div class="card">
+  <div class="spread" style="margin-bottom:10px">
+    <h2 style="margin:0">论文信息</h2>
+    <button class="btn sec sm" type="button" onclick="toggle('editpaper')">编辑</button>
+  </div>
+
+  <div class="grid g2">
+    <div>
+      <label>作者顺序</label>
+      {% if paper.authors %}
+        <ol style="margin:0;padding-left:20px">
+          {% for a in paper.authors.replace(',', '\n').replace('，', '\n').split('\n') %}
+            {% if a.strip() %}<li>{{ a.strip() }}</li>{% endif %}
+          {% endfor %}
+        </ol>
+      {% else %}<span class="muted">未填写</span>{% endif %}
+    </div>
+    <div>
+      <label>通讯作者</label>
+      <div>{{ paper.corresponding or '未填写' }}</div>
+      <label style="margin-top:12px">备注（历史记录）</label>
+      <div class="small">{{ paper.notes or '—' }}</div>
+      <label style="margin-top:12px">创建 / 更新</label>
+      <div class="small muted">{{ paper.created_at[:16] }} → {{ paper.updated_at[:16] }}</div>
+    </div>
+  </div>
+
+  <form method="post" action="/paper/{{ paper.id }}/edit" id="editpaper" style="display:none;margin-top:16px;border-top:1px solid var(--line);padding-top:16px">
+    <div class="grid g2">
+      <div class="full"><label>英文标题</label><input type="text" name="title" value="{{ paper.title }}" required></div>
+      <div><label>中文标题 / 简称</label><input type="text" name="title_cn" value="{{ paper.title_cn }}"></div>
+      <div>
+        <label>编号{% if user.role != 'admin' %}（只有管理员能改）{% endif %}</label>
+        <input type="text" name="code" value="{{ paper.code }}" {% if user.role != 'admin' %}readonly{% endif %}>
+      </div>
+      <div><label>论文负责人</label><input type="text" name="lead_author" value="{{ paper.lead_author }}" list="rosterlist"></div>
+{% if user.role == 'admin' %}
+      <div>
+        <label>{{ owner_label }}的作者位次（管理员填，学生看不到）</label>
+        <select name="author_pos">
+          <option value="">暂不标</option>
+          {% for r in AUTHOR_POS %}<option value="{{ r }}" {% if r == paper.author_pos %}selected{% endif %}>{{ r }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <label><input type="checkbox" name="is_corresponding" value="1" {% if paper.is_corresponding %}checked{% endif %} style="width:auto"> {{ owner_label }}是通讯作者</label>
+      </div>
+      <div class="full">
+        <label>跟进方式（决定 AI 是否查状态、跟进计划是否活跃）</label>
+        <select name="follow_mode">
+          {% for k, name in FOLLOW_MODES.items() %}<option value="{{ k }}" {% if k == paper.follow_mode %}selected{% endif %}>{{ name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="full">
+        <label>论文分类（其他论文走 X 序列；合作方论文沿用 P 编号，统计时不计入主序列）</label>
+        <select name="category">
+          {% for k, name in CATEGORY_NAMES.items() %}<option value="{{ k }}" {% if k == paper.category %}selected{% endif %}>{{ name }}</option>{% endfor %}
+        </select>
+      </div>
+{% endif %}
+      <div class="full"><label>作者顺序（一行一个）</label><textarea name="authors" rows="6">{{ paper.authors }}</textarea></div>
+      <div><label>通讯作者</label><input type="text" name="corresponding" value="{{ paper.corresponding }}" list="rosterlist"></div>
+      <div>
+        <label>当前状态</label>
+        <select name="status">
+          {% for s in PAPER_STATUS %}<option value="{{ s }}" {% if s == paper.status %}selected{% endif %}>{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="full"><label>当前情况（一两句，整段覆盖）</label><textarea name="current_note" rows="2">{{ paper.current_note }}</textarea></div>
+      <div class="full"><label>备注（历史记录，追加写）</label><textarea name="notes" rows="2">{{ paper.notes }}</textarea></div>
+    </div>
+    <div class="rowline" style="margin-top:12px">
+      <button class="btn">保存</button>
+      <button class="btn sec" type="button" onclick="toggle('editpaper')">收起</button>
+    </div>
+  </form>
+</div>
+
+<!-- ============ 投稿 / 转投时间线 ============ -->
+<div class="card">
+  <div class="spread" style="margin-bottom:12px">
+    <div>
+      <h2 style="margin:0">投稿 / 转投记录</h2>
+      <p class="sub" style="margin:2px 0 0">
+      <b>转投 = 投稿的第 N 次</b>：正式投是第 1 次，转投一家就是第 2 次，再转就是第 3 次。
+      只有最新那次有状态；被转走的显示「已转投」，管理员补记了真实结局时显示「已转投（被拒）」这类；
+      「未关闭」表示原刊流程还开着，要防一稿多投。
+    </p>
+    </div>
+    <button class="btn sm" type="button" onclick="toggle('newsub')">+ 新增一次投稿 / 转投</button>
+  </div>
+
+  <form method="post" action="/paper/{{ paper.id }}/submission/new" id="newsub" style="display:none;background:#fbfcfe;border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px">
+    <h3 style="margin-top:0">第 {{ subs|length + 1 }} 次投稿</h3>
+    <div class="grid g2">
+      <div><label>期刊 / 会议名</label><input type="text" name="journal" placeholder="例如：Applied Energy" required></div>
+      <div><label>投稿日期</label><input type="date" name="submit_date"></div>
+      <div class="full"><label>投稿系统网址</label><input type="text" name="site_url" placeholder="https://www.editorialmanager.com/<期刊缩写>/"></div>
+      <div><label>投稿系统账号</label><input type="text" name="sys_account"></div>
+      <div><label>投稿系统密码</label><input type="text" name="sys_password"></div>
+      <div><label>稿号 Manuscript ID</label><input type="text" name="manuscript_id"></div>
+      <div>
+        <label>本次状态</label>
+        <select name="status">{% for s in SUBMISSION_STATUS %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select>
+      </div>
+      <div class="full"><label>备注</label><textarea name="notes" rows="2" placeholder="例如：从 XXX 被拒后转投；编辑要求补充实验"></textarea></div>
+      {% if subs %}
+      <div class="full">
+        <label><input type="checkbox" name="close_previous" value="1" checked style="width:auto"> 同时把上一次投稿标记为「转投」</label>
+      </div>
+      {% endif %}
+    </div>
+    <div class="rowline" style="margin-top:12px">
+      <button class="btn">保存这次投稿</button>
+      <button class="btn sec" type="button" onclick="toggle('newsub')">取消</button>
+    </div>
+  </form>
+
+  {% if subs %}
+  <ul class="timeline">
+    {% for s in subs %}
+    <li class="tl-item {% if loop.first %}current{% endif %}">
+      <div class="tl-head">
+        <span class="seq">第 {{ s.seq }} 次</span>
+        <b>{{ s.journal or '（未填期刊）' }}</b>
+        {% if loop.first %}
+          <span class="tag s-{{ s.status }}">{{ s.status }}</span><span class="tag">当前</span>
+        {% else %}
+          <span class="tag s-被拒">{{ display_status(s.status, s.outcome, false) }}</span>
+        {% endif %}
+        <span style="flex:1"></span>
+        <button class="btn sec sm" type="button" onclick="toggle('sub{{ s.id }}')">编辑</button>
+      </div>
+      <dl class="kv">
+        <dt>投稿日期</dt><dd>{{ s.submit_date or '—' }}{% if s.result_date %} → 结果 {{ s.result_date }}{% endif %}</dd>
+        <dt>稿号</dt><dd>{{ s.manuscript_id or '—' }}</dd>
+        <dt>投稿网址</dt>
+        <dd>{% if s.site_url %}<a href="{{ s.site_url }}" target="_blank" rel="noopener">{{ s.site_url }}</a>{% else %}—{% endif %}</dd>
+        <dt>系统账号</dt><dd class="mono">{{ s.sys_account or '—' }}</dd>
+        <dt>系统密码</dt>
+        <dd>
+          {% if s.sys_password %}
+          <span class="secret">
+            <code data-secret="{{ s.sys_password }}">••••••••</code>
+            <button class="linkbtn" type="button" onclick="reveal(this)">显示</button>
+          </span>
+          {% else %}—{% endif %}
+        </dd>
+        {% if s.notes %}<dt>备注</dt><dd>{{ s.notes }}</dd>{% endif %}
+      </dl>
+
+      <form method="post" action="/submission/{{ s.id }}/edit" id="sub{{ s.id }}" style="display:none;margin-top:14px;border-top:1px dashed var(--line);padding-top:14px">
+        <div class="grid g2">
+          <div><label>期刊</label><input type="text" name="journal" value="{{ s.journal }}"></div>
+          <div><label>投稿日期</label><input type="date" name="submit_date" value="{{ s.submit_date }}"></div>
+          <div class="full"><label>投稿系统网址</label><input type="text" name="site_url" value="{{ s.site_url }}"></div>
+          <div><label>系统账号</label><input type="text" name="sys_account" value="{{ s.sys_account }}"></div>
+          <div><label>系统密码</label><input type="text" name="sys_password" value="{{ s.sys_password }}"></div>
+          <div><label>稿号</label><input type="text" name="manuscript_id" value="{{ s.manuscript_id }}"></div>
+          <div>
+            <label>状态{% if not loop.first %}（这条已被后面的投稿取代，页面固定显示「已转投」）{% endif %}</label>
+            <select name="status">{% for st in SUBMISSION_STATUS %}<option value="{{ st }}" {% if st == s.status %}selected{% endif %}>{{ st }}</option>{% endfor %}</select>
+          </div>
+          <div><label>结果日期（拒稿 / 录用那天）</label><input type="date" name="result_date" value="{{ s.result_date }}"></div>
+          {% if user.role == 'admin' %}
+          <div>
+            <label>这一轮的真实结局（被后面的投稿取代后显示用）</label>
+            <select name="outcome">{% for oc in OUTCOMES %}<option value="{{ oc }}" {% if oc == s.outcome %}selected{% endif %}>{{ oc or '未记录（显示「已转投」）' }}</option>{% endfor %}</select>
+          </div>
+          {% endif %}
+          <div class="full"><label>备注</label><textarea name="notes" rows="2">{{ s.notes }}</textarea></div>
+        </div>
+        <div class="rowline" style="margin-top:12px">
+          <button class="btn">保存</button>
+          <button class="btn sec" type="button" onclick="toggle('sub{{ s.id }}')">收起</button>
+        </div>
+      </form>
+      <form method="post" action="/submission/{{ s.id }}/delete" onsubmit="return confirm('确定删除第 {{ s.seq }} 次投稿记录？删了就找不回来了。')" style="display:inline">
+        <button class="btn danger sm" style="margin-top:10px">删除这条</button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted small">还没有投稿记录。点上面「+ 新增一次投稿 / 转投」。</p>
+  {% endif %}
+</div>
+
+<!-- ============ 投稿包 ============ -->
+<div class="card">
+  <h2>投稿包 / 附件</h2>
+  <p class="sub">Word、PDF、LaTeX 压缩包都行，单个文件最大 {{ max_mb }} MB。LaTeX 请打包成 .zip 再传。</p>
+
+  <form method="post" action="/paper/{{ paper.id }}/upload" enctype="multipart/form-data">
+    <div class="grid g3">
+      <div class="full"><label>选择文件</label><input type="file" name="f" required></div>
+      <div><label>说明（可不填）</label><input type="text" name="label" placeholder="例如：v3 投稿版 / cover letter"></div>
+      <div>
+        <label>关联哪次投稿（可不选）</label>
+        <select name="submission_id">
+          <option value="">不指定</option>
+          {% for s in subs %}<option value="{{ s.id }}">第 {{ s.seq }} 次 · {{ s.journal }}</option>{% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;align-items:flex-end"><button class="btn">上传</button></div>
+    </div>
+  </form>
+
+  {% if files %}
+  <table style="margin-top:16px">
+    <thead><tr><th>文件</th><th>说明</th><th>大小</th><th>上传人</th><th>时间</th><th></th></tr></thead>
+    <tbody>
+      {% for f in files %}
+      <tr>
+        <td class="head"><a href="/file/{{ f.id }}">{{ f.orig_name }}</a></td>
+        <td class="small" data-label="说明">[{{ f.kind }}] {{ f.label or '—' }}</td>
+        <td class="small" data-label="大小">{{ (f.size / 1048576) | round(2) }} MB</td>
+        <td class="small" data-label="上传人">{{ f.uploader or '—' }}</td>
+        <td class="small muted" data-label="时间">{{ f.created_at[:16] }}</td>
+        <td>
+          <form method="post" action="/file/{{ f.id }}/delete" onsubmit="return confirm('删除这个文件？')">
+            <button class="btn danger sm">删除</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted small" style="margin-bottom:0">还没有上传任何文件。</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2>期刊进展与审稿记录</h2>
+  <p>当前阶段：{{ progress.review_stage or '未标注' }} · 无进展：{{ progress.days_without_progress if progress.days_without_progress is not none else '日期待补' }} 天 · 最近核查：{{ progress.last_checked_date or '未登记' }} · 返修截止：{{ progress.revision_due_date or '—' }}</p>
+  <p class="small muted">保留各轮投稿的期刊状态、审稿意见及核查记录。核查和上传附件不会重置实质进展日期。</p>
+  {% for e in events %}
+  <details style="margin-bottom:12px">
+    <summary>{{ e.event_date }} · 第 {{ e.seq }} 次投稿 · {{ e.kind }} · {{ e.stage }} · R{{ e.round }} {{ e.reviewer }} {% if e.due_date %}截止 {{ e.due_date }}{% endif %}</summary>
+    <pre style="white-space:pre-wrap;overflow-wrap:anywhere">{{ e.text }}</pre>
+  </details>
+  {% else %}<p class="muted">尚无结构化审稿／进展记录。</p>{% endfor %}
+</div>
+
+<!-- ============ 危险操作 ============ -->
+<div class="card">
+  <h2>其他操作</h2>
+  <div class="rowline">
+    {% if user.role == 'admin' %}
+    <form method="post" action="/paper/{{ paper.id }}/transfer" class="rowline">
+      <label style="margin:0">把这篇论文归到：</label>
+      <select name="owner_id" style="width:auto">
+        {% for u in users %}<option value="{{ u.id }}" {% if u.id == paper.owner_id %}selected{% endif %}>{{ u.display_name }}（@{{ u.username }}）</option>{% endfor %}
+      </select>
+      <button class="btn sec sm">转移归属</button>
+    </form>
+    {% endif %}
+    <form method="post" action="/paper/{{ paper.id }}/delete" onsubmit="return confirm('确定删除整篇论文？投稿记录和附件都会一起删掉，不可恢复。')">
+      <button class="btn danger sm">删除整篇论文</button>
+    </form>
+  </div>
+</div>
+
+<datalist id="rosterlist">
+  {% for r in roster %}
+    {% if r.cn_name %}<option value="{{ r.cn_name }}">{% endif %}
+    {% if r.en_name %}<option value="{{ r.en_name }}">{% endif %}
+  {% endfor %}
+</datalist>
+
+{% endblock %}
+
+{% block script %}
+<script>
+function toggle(id) {
+  const el = document.getElementById(id);
+  el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
+  if (el.style.display === 'block') el.scrollIntoView({behavior: 'smooth', block: 'center'});
+}
+function reveal(btn) {
+  const code = btn.parentElement.querySelector('code');
+  const real = code.dataset.secret;
+  if (btn.textContent === '显示') { code.textContent = real; btn.textContent = '隐藏'; }
+  else { code.textContent = '••••••••'; btn.textContent = '显示'; }
+}
+</script>
+<script src="/static/followup.js" defer></script>
+{% endblock %}

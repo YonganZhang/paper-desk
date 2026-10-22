@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="authbox">
+  <h1>注册学生账号</h1>
+  <p class="sub">注册后只能看到你自己录入的论文</p>
+  <div class="card">
+    <form method="post" action="/register" class="grid">
+      <div>
+        <label>账号（英文/数字，登录用）</label>
+        <input type="text" name="username" autofocus required placeholder="例如 zhangsan">
+      </div>
+      <div>
+        <label>你的姓名（中文，方便老师认人）</label>
+        <input type="text" name="display_name" placeholder="例如 张三">
+      </div>
+      <div><label>密码（至少 4 位）</label><input type="password" name="password" required></div>
+      <div><label>再输一次密码</label><input type="password" name="password2" required></div>
+      {% if invite_needed %}
+      <div><label>邀请码（问管理员要）</label><input type="text" name="invite" required></div>
+      {% endif %}
+      <div><button class="btn" style="width:100%">注册</button></div>
+    </form>
+    <p class="small muted" style="margin:14px 0 0">
+      已经有账号了？<a href="/login">去登录</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

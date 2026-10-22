@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block body %}
+
+<h1>管理</h1>
+<p class="sub">站点设置、用户管理、操作日志。</p>
+
+<div class="card">
+  <h2>站点设置</h2>
+  <form method="post" action="/admin/settings">
+    <div class="grid g2">
+      <div><label>站点名称</label><input type="text" name="site_title" value="{{ site_title }}"></div>
+      <div>
+        <label>注册邀请码（可选，默认关闭 = 任何人都能注册）</label>
+        <div class="rowline">
+          <label style="margin:0"><input type="checkbox" name="invite_enabled" value="1" {% if invite_enabled %}checked{% endif %} style="width:auto"> 启用</label>
+          <input type="text" name="invite_code" value="{{ invite_code }}" placeholder="例如 2026lab" style="flex:1">
+        </div>
+      </div>
+      <div class="full">
+        <label>首页公告（学生一进来就看到）</label>
+        <textarea name="notice" rows="2">{{ notice }}</textarea>
+      </div>
+    </div>
+    <div class="rowline" style="margin-top:12px"><button class="btn">保存设置</button></div>
+  </form>
+  <hr style="border:none;border-top:1px solid var(--line);margin:16px 0">
+  <h3 style="margin-top:0">外部 API token（给你自己的 AI / 脚本查进度用）</h3>
+  <p class="small muted" style="margin:0 0 8px">
+    只读接口，<b>永远不返回投稿系统账号密码</b>。文档见 GitHub 仓库 <code>docs/API.md</code>。
+  </p>
+  {% if api_token %}
+  <div class="secret" style="margin-bottom:8px">
+    <code data-secret="{{ api_token }}">••••••••••••••••</code>
+    <button class="linkbtn" type="button" onclick="reveal(this)">显示</button>
+    <button class="linkbtn" type="button" onclick="copysecret(this)">复制</button>
+  </div>
+  {% else %}<p class="small" style="margin:0 0 8px">还没生成。</p>{% endif %}
+  <form method="post" action="/admin/api-token" onsubmit="return confirm('重新生成会让旧 token 立刻失效，确定？')">
+    <button class="btn sec sm">{% if api_token %}重新生成只读 token（旧的立即失效）{% else %}生成只读 token{% endif %}</button>
+  </form>
+
+  <h3>写 token（可增删改 + 上传附件）</h3>
+  <p class="small muted" style="margin:0 0 8px">
+    🔴 这个 token <b>能改数据</b>。只发给确实需要写的机器或脚本，
+    别和只读 token 混用。删除接口另需 <code>?confirm=</code> 参数，且删前自动打快照。
+  </p>
+  {% if api_write_token %}
+  <div class="secret" style="margin-bottom:8px">
+    <code data-secret="{{ api_write_token }}">••••••••••••••••</code>
+    <button class="linkbtn" type="button" onclick="reveal(this)">显示</button>
+    <button class="linkbtn" type="button" onclick="copysecret(this)">复制</button>
+  </div>
+  {% else %}<p class="small" style="margin:0 0 8px">还没生成。</p>{% endif %}
+  <form method="post" action="/admin/api-write-token" onsubmit="return confirm('重新生成会让旧的写 token 立刻失效，确定？')">
+    <button class="btn sec sm">{% if api_write_token %}重新生成写 token{% else %}生成写 token{% endif %}</button>
+  </form>
+
+  <p class="small muted" style="margin-bottom:0">
+    💡 如果这个站点挂到了公网，建议打开邀请码——否则任何知道网址的人都能注册，并看到公共投稿账号页里的密码。
+  </p>
+</div>
+
+<div class="card tablecard">
+  <div style="padding:18px 20px 0"><h2>用户（{{ users|length }}）</h2></div>
+  <table>
+    <thead><tr><th>用户</th><th>账号</th><th>姓名</th><th>角色</th><th>论文数</th><th>状态</th><th>注册时间</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for u in users %}
+      <tr>
+        <td class="head"><b>{{ u.display_name }}</b> <span class="mono muted">@{{ u.username }}</span></td>
+        <td class="mono" data-label="账号">{{ u.username }}</td>
+        <td data-label="姓名">{{ u.display_name }}</td>
+        <td data-label="角色">{% if u.role == 'admin' %}<span class="tag admin">管理员</span>{% else %}<span class="tag">学生</span>{% endif %}</td>
+        <td data-label="论文数">{{ u.n_paper }}</td>
+        <td data-label="状态">{% if u.active %}正常{% else %}<span style="color:#c0392b">已停用</span>{% endif %}</td>
+        <td class="small muted" data-label="注册">{{ u.created_at[:16] }}</td>
+        <td>
+          <div class="rowline">
+            <form method="post" action="/admin/user/{{ u.id }}/reset" class="rowline">
+              <input type="text" name="new_password" placeholder="新密码" style="width:110px">
+              <button class="btn sec sm">重置密码</button>
+            </form>
+            {% if u.role != 'admin' %}
+            <form method="post" action="/admin/user/{{ u.id }}/toggle">
+              <button class="btn sec sm">{% if u.active %}停用{% else %}启用{% endif %}</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card tablecard">
+  <div style="padding:18px 20px 0"><h2>最近操作日志</h2></div>
+  <table>
+    <thead><tr><th>时间</th><th>谁</th><th>动作</th><th>详情</th></tr></thead>
+    <tbody>
+    {% for l in logs %}
+      <tr>
+        <td class="small muted head">{{ l.ts }}</td>
+        <td class="small" data-label="谁">{{ l.actor }}</td>
+        <td class="small mono" data-label="动作">{{ l.action }}</td>
+        <td class="small muted" data-label="详情">{{ l.detail }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% endblock %}
+
+{% block script %}
+<script>
+function reveal(btn){const c=btn.parentElement.querySelector('code');
+  if(btn.textContent==='显示'){c.textContent=c.dataset.secret;btn.textContent='隐藏';}
+  else{c.textContent='••••••••••••••••';btn.textContent='显示';}}
+function copysecret(btn){const c=btn.parentElement.querySelector('code');
+  navigator.clipboard.writeText(c.dataset.secret).then(()=>{btn.textContent='已复制';
+  setTimeout(()=>btn.textContent='复制',1500);});}
+</script>
+{% endblock %}

@@ -1,0 +1,3 @@
+# 测试依赖：pip install -r requirements.txt -r requirements-dev.txt
+pytest>=7     # MIT
+httpx>=0.24   # fastapi.testclient 需要（BSD）

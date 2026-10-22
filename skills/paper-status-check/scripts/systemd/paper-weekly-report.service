@@ -1,0 +1,17 @@
+[Unit]
+# 每周投稿情况追踪：读台账、扫近 7 天期刊来信、读投稿系统列表页和作者确认页，按配置发中文报告。
+# 只读，不点稿件按钮、不回信；系统页读到时给台账记 check-in。存档在配置 report.out_dir。
+# 这是模板：@SKILL_DIR@ 与 @PATH@ 由 references/weekly-report.md 里的安装命令替换，安装副本在 ~/.config/systemd/user/。
+Description=Weekly paper submission status report (paper-status-check)
+
+[Service]
+Type=oneshot
+# PATH 要能找到 playwright-cli、台账 CLI（paper）和 Xvfb
+Environment=PATH=@PATH@
+# 密码、代理等环境变量（PAPER_SUBMIT_PASSWORD_CMD、邮箱 password_env 指向的变量、HTTPS_PROXY…）放这里，权限 0600
+EnvironmentFile=-%h/.config/paper-desk/status-check.env
+ExecStart=/usr/bin/env python3 -I @SKILL_DIR@/scripts/weekly_report.py --send
+TimeoutStartSec=1800
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=paper-weekly-report

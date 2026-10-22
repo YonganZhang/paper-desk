@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# paper 命令行包装：可以软链到 PATH 里任意位置（如 ~/bin/paper）。
+# 程序目录取 PAPER_DESK_HOME（指向含 paper_cli.py 的 ledger/ 目录），没设就按本脚本真实位置的上一级找。
+# 解释器：ledger/.venv/bin/python 存在就用它，否则用 $PYTHON，最后用 python3。
+set -euo pipefail
+self="$(readlink -f "${BASH_SOURCE[0]}")"
+home="${PAPER_DESK_HOME:-$(dirname "$self")/..}"
+if [ ! -f "$home/paper_cli.py" ]; then
+  echo "paper: 在 $home 找不到 paper_cli.py；请把 PAPER_DESK_HOME 设为 ledger/ 目录" >&2
+  exit 2
+fi
+py="$home/.venv/bin/python"
+[ -x "$py" ] || py="${PYTHON:-python3}"
+exec "$py" "$home/paper_cli.py" "$@"

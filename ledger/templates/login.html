@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="authbox">
+  <h1>📄 {{ site_title }}</h1>
+  <p class="sub">课题组论文投稿 / 转投记录</p>
+  <div class="card">
+    <form method="post" action="/login" class="grid">
+      <div><label>账号</label><input type="text" name="username" autofocus required></div>
+      <div><label>密码</label><input type="password" name="password" required></div>
+      <div><button class="btn" style="width:100%">登录</button></div>
+    </form>
+    <p class="small muted" style="margin:14px 0 0">
+      还没有账号？<a href="/register">自己注册一个</a>（几秒钟，不用审批）<br>
+      不知道怎么用？先看 <a href="/guide">新手教程</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

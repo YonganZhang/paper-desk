@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block body %}
+
+<div class="spread" style="margin-bottom:8px">
+  <div>
+    <h1>课题组花名册</h1>
+    <p class="sub" style="margin:0">写作者列表、通讯作者、单位、致谢时先查这里，<b>别凭记忆补邮箱和单位</b>。共 {{ rows|length }} 人。</p>
+  </div>
+  {% if user.role == 'admin' %}<button class="btn" type="button" onclick="toggle('newr')">+ 添加成员</button>{% endif %}
+</div>
+
+{% if user.role == 'admin' %}
+<form method="post" action="/roster/save" class="card" id="newr" style="display:none">
+  <h2>添加成员</h2>
+  <div class="grid g3">
+    <div><label>中文名</label><input type="text" name="cn_name"></div>
+    <div><label>英文名</label><input type="text" name="en_name"></div>
+    <div><label>邮箱</label><input type="text" name="email"></div>
+    <div class="full"><label>单位（多个用 ; 分隔）</label><textarea name="affiliation" rows="2"></textarea></div>
+    <div><label>常用角色</label><input type="text" name="role_note" placeholder="第一作者 / 通讯作者 / 合作者"></div>
+    <div><label>排序</label><input type="number" name="sort_order" value="100"></div>
+    <div class="full"><label>备注</label><input type="text" name="notes"></div>
+  </div>
+  <div class="rowline" style="margin-top:12px">
+    <button class="btn">保存</button>
+    <button class="btn sec" type="button" onclick="toggle('newr')">取消</button>
+  </div>
+</form>
+{% endif %}
+
+<div class="card tablecard">
+<table>
+  <thead>
+    <tr><th>中文名</th><th>英文名</th><th>邮箱</th><th>常用角色</th><th>单位</th><th>备注</th>{% if user.role == 'admin' %}<th></th>{% endif %}</tr>
+  </thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td class="head"><b>{{ r.cn_name or r.en_name or '—' }}</b></td>
+      <td data-label="英文名">{{ r.en_name or '—' }}</td>
+      <td class="mono" data-label="邮箱">{{ r.email or '待确认' }}</td>
+      <td class="small" data-label="角色">{{ r.role_note or '—' }}</td>
+      <td class="small muted" data-label="单位" style="max-width:380px">{{ r.affiliation or '—' }}</td>
+      <td class="small muted" data-label="备注">{{ r.notes or '—' }}</td>
+      {% if user.role == 'admin' %}
+      <td style="white-space:nowrap">
+        <button class="btn sec sm" type="button" onclick="toggle('r{{ r.id }}')">编辑</button>
+      </td>
+      {% endif %}
+    </tr>
+    {% if user.role == 'admin' %}
+    <tr id="r{{ r.id }}" style="display:none">
+      <td colspan="7" style="background:#fbfcfe">
+        <form method="post" action="/roster/save">
+          <input type="hidden" name="id" value="{{ r.id }}">
+          <div class="grid g3">
+            <div><label>中文名</label><input type="text" name="cn_name" value="{{ r.cn_name }}"></div>
+            <div><label>英文名</label><input type="text" name="en_name" value="{{ r.en_name }}"></div>
+            <div><label>邮箱</label><input type="text" name="email" value="{{ r.email }}"></div>
+            <div class="full"><label>单位</label><textarea name="affiliation" rows="2">{{ r.affiliation }}</textarea></div>
+            <div><label>常用角色</label><input type="text" name="role_note" value="{{ r.role_note }}"></div>
+            <div><label>排序</label><input type="number" name="sort_order" value="{{ r.sort_order }}"></div>
+            <div class="full"><label>备注</label><input type="text" name="notes" value="{{ r.notes }}"></div>
+          </div>
+          <div class="rowline" style="margin-top:10px">
+            <button class="btn sm">保存</button>
+            <button class="btn sec sm" type="button" onclick="toggle('r{{ r.id }}')">收起</button>
+          </div>
+        </form>
+        <form method="post" action="/roster/{{ r.id }}/delete" onsubmit="return confirm('从花名册删除 {{ r.cn_name or r.en_name }}？')" style="margin-top:8px">
+          <button class="btn danger sm">删除</button>
+        </form>
+      </td>
+    </tr>
+    {% endif %}
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+{% endblock %}
+
+{% block script %}
+<script>
+function toggle(id) {
+  const el = document.getElementById(id);
+  const on = (el.style.display === 'none' || !el.style.display);
+  el.style.display = on ? (el.tagName === 'TR' ? 'table-row' : 'block') : 'none';
+}
+</script>
+{% endblock %}

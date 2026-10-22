@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% import "_followup_labels.html" as labels %}
+{% block title %}论文跟进 · {{ site_title }}{% endblock %}
+{% block body %}
+<div class="spread tracking-heading">
+  <div>
+    <h1>逐篇论文跟进</h1>
+    <p class="sub">每篇保留处理过程、等待对象和完成条件。已录用或结束的记录归档，历史继续保留。</p>
+  </div>
+  <span id="live" class="tag">● 自动刷新中</span>
+</div>
+
+<div class="tracking-stats" aria-label="跟进概况">
+  <a href="/followups" class="card tight"><span>活动跟进</span><b>{{ followup_counts.get('active', 0) }}</b></a>
+  <a href="/followups?focus=decision" class="card tight"><span>需要决策</span><b>{{ followup_counts.get('needs_decision', 0) }}</b></a>
+  <a href="/followups?focus=attention" class="card tight"><span>到期／停滞需复查</span><b>{{ followup_counts.get('attention', 0) }}</b></a>
+  <a href="/followups?archived=1" class="card tight"><span>已归档</span><b>{{ followup_counts.get('archived', 0) }}</b></a>
+</div>
+
+<div class="card tight">
+  <nav class="tracking-tabs" aria-label="跟进范围">
+    <a class="{% if not archived %}selected{% endif %}" href="/followups">正在跟进</a>
+    <a class="{% if archived %}selected{% endif %}" href="/followups?archived=1">归档历史</a>
+  </nav>
+  <div class="rowline">
+    <label class="tracking-filter">检索论文<input id="tracking-query" type="search" placeholder="编号、题目、负责人或等待对象"></label>
+    <label>关注事项<select id="tracking-focus">
+      <option value="all">全部</option><option value="attention">到期／停滞需复查</option>
+      <option value="decision">需要决策</option><option value="waiting">等待回复／处理</option>
+      <option value="action">待投稿／返修／转投</option><option value="paused">暂停处理</option>
+    </select></label>
+    <label>当前阶段<select id="tracking-stage"><option value="">全部阶段</option>
+      {% for value, name in labels.stages.items() %}<option value="{{ value }}">{{ name }}</option>{% endfor %}
+    </select></label>
+  </div>
+</div>
+
+<p class="small muted" id="tracking-count" aria-live="polite"></p>
+{% if followups %}
+<div class="card tablecard tracking-table">
+  <table>
+    <thead><tr><th>论文</th><th>当前阶段／问题</th><th>最近进展及核查</th><th>等待对象</th><th>下一步／完成条件</th><th>复查与截止</th><th>需要决策</th></tr></thead>
+    <tbody>
+    {% for item in followups %}
+    <tr data-tracking-row data-stage="{{ item.stage }}" data-decision="{{ 1 if item.decision_required else 0 }}" data-attention="{{ 1 if item.needs_attention else 0 }}">
+      <td class="head tracking-paper">
+        <a href="/paper/{{ item.paper_id }}#followup"><b>{{ item.code or '未编号' }} · {{ item.title_cn or item.title }}</b></a>
+        {% if item.title_cn %}<div class="small muted">{{ item.title }}</div>{% endif %}
+        <div class="small">{% if item.target_journal %}拟投／办理：{% endif %}{{ item.current_journal or '期刊待核验' }}</div>
+        {% if item.ledger_journal and item.ledger_journal != item.current_journal %}<div class="small muted">历史轮次：{{ item.ledger_journal }}</div>{% endif %}
+        <div class="small muted">负责人：{{ item.lead_author or '待核实' }}{% if item.follow_mode %} · {{ item.follow_mode_label }}{% endif %}</div>
+      </td>
+      <td data-label="当前阶段"><span class="tag tracking-stage stage-{{ item.stage }}">{{ labels.stage(item.stage) }}</span>
+        {% if item.blocked_reason %}<p class="tracking-text">{{ item.blocked_reason }}</p>{% endif %}
+        {% if item.evidence_source %}<div class="small muted tracking-evidence">依据：{{ item.evidence_source }} · {{ labels.date(item.evidence_at, '证据时间待核验') }}</div>{% endif %}
+        {% if item.priority in ['high', 'urgent'] %}<span class="tag tracking-alert">{{ '紧急' if item.priority == 'urgent' else '优先处理' }}</span>{% endif %}
+      </td>
+      <td data-label="最近进展" class="small">
+        <div>实质进展：{{ labels.date(item.last_progress_at, '尚无核实日期') }}</div>
+        <div class="muted">最近核查：{{ labels.date(item.last_checked_at, '尚未核查') }}</div>
+        {% if item.days_without_progress is defined and item.days_without_progress is not none %}<div class="{% if item.needs_attention %}tracking-warning{% else %}muted{% endif %}">{{ item.days_without_progress }} 天无实质进展</div>{% endif %}
+      </td>
+      <td data-label="正在等待" class="small"><div>{{ item.waiting_for or '—' }}</div>{% if item.days_waiting is defined and item.days_waiting is not none and item.waiting_for %}<div class="muted">已等待 {{ item.days_waiting }} 天</div>{% endif %}</td>
+      <td data-label="下一步" class="small tracking-action">
+        <div>{{ item.next_action or '待核验后明确下一步' }}</div>
+        <div class="muted">执行人：{{ item.action_owner or '待核实' }}</div>
+        <div class="tracking-condition"><b>完成条件：</b>{{ item.completion_condition or '待补充' }}</div>
+      </td>
+      <td data-label="复查／截止" class="small">
+        <div>复查：{{ labels.date(item.next_check_at, '待安排') }}</div>
+        <div>截止：{{ labels.date(item.due_at, '无明确期限') }}</div>
+        {% if item.needs_attention %}<span class="tag tracking-alert">需复查</span>{% endif %}
+      </td>
+      <td data-label="需要决策" class="small">
+        {% if item.decision_required %}<span class="tag tracking-alert">待你决策</span><p class="tracking-text">{{ item.decision_request or '查看详情中的待决策事项' }}</p>{% else %}<span class="muted">暂不需要</span>{% endif %}
+        <a class="tracking-detail" href="/paper/{{ item.paper_id }}#followup">查看逐日记录 →</a>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="card tracking-empty" id="tracking-empty" hidden>没有符合筛选条件的论文。</div>
+{% else %}
+<div class="card tracking-empty">{% if archived %}暂无归档记录。{% else %}暂无活动跟进。可在论文详情中建立跟进记录。{% endif %}</div>
+{% endif %}
+<p class="small muted">发出邮件表示已联系；问题解决需要对应证据。核查或催信不会重置实质进展日期。日期按 {{ timezone }} 时区登记。</p>
+{% endblock %}
+{% block script %}<script src="/static/followup.js" defer></script>{% endblock %}

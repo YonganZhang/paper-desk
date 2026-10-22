@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block body %}
+
+<div class="spread" style="margin-bottom:8px">
+  <div>
+    <h1>公共投稿账号</h1>{% if user.role == "admin" %}<a href="/private-accounts">管理专用期刊账号（加密）</a>{% endif %}
+    <p class="sub" style="margin:0">课题组通用的投稿邮箱和各投稿系统账号。<b>所有登录用户都能看到</b>，转投、换人接手时直接用。</p>
+  </div>
+  {% if user.role == 'admin' %}<button class="btn" type="button" onclick="toggle('newacc')">+ 添加账号</button>{% endif %}
+</div>
+
+<div class="notice">
+  🔐 这些是课题组共享凭证。只在投稿系统里用，不要转发到微信群、不要截图外传、不要用在其他网站。
+</div>
+
+{% if user.role == 'admin' %}
+<form method="post" action="/accounts/save" class="card" id="newacc" style="display:none">
+  <h2>添加公共账号</h2>
+  <div class="grid g2">
+    <div><label>名称</label><input type="text" name="label" placeholder="例如：Elsevier 通用投稿邮箱" required></div>
+    <div><label>平台</label><input type="text" name="platform" placeholder="Editorial Manager / ScholarOne / Springer …"></div>
+    <div class="full"><label>登录网址</label><input type="text" name="url" placeholder="https://www.editorialmanager.com/"></div>
+    <div><label>账号 / 邮箱</label><input type="text" name="account"></div>
+    <div><label>密码</label><input type="text" name="password"></div>
+    <div class="full"><label>说明</label><textarea name="notes" rows="2" placeholder="例如：只用于 Elsevier 系期刊；投完请在台账里登记"></textarea></div>
+    <div><label>排序（小的在前）</label><input type="number" name="sort_order" value="100"></div>
+  </div>
+  <div class="rowline" style="margin-top:12px">
+    <button class="btn">保存</button>
+    <button class="btn sec" type="button" onclick="toggle('newacc')">取消</button>
+  </div>
+</form>
+{% endif %}
+
+{% if rows %}
+  {% for r in rows %}
+  <div class="card">
+    <div class="spread" style="margin-bottom:8px">
+      <div class="rowline">
+        <b style="font-size:16px">{{ r.label or '（未命名）' }}</b>
+        {% if r.platform %}<span class="tag">{{ r.platform }}</span>{% endif %}
+      </div>
+      {% if user.role == 'admin' %}<button class="btn sec sm" type="button" onclick="toggle('acc{{ r.id }}')">编辑</button>{% endif %}
+    </div>
+    <dl class="kv">
+      <dt>登录网址</dt>
+      <dd>{% if r.url %}<a href="{{ r.url }}" target="_blank" rel="noopener">{{ r.url }}</a>{% else %}—{% endif %}</dd>
+      <dt>账号</dt><dd class="mono">{{ r.account or '—' }}</dd>
+      <dt>密码</dt>
+      <dd>
+        {% if r.password %}
+        <span class="secret">
+          <code data-secret="{{ r.password }}">••••••••</code>
+          <button class="linkbtn" type="button" onclick="reveal(this)">显示</button>
+          <button class="linkbtn" type="button" onclick="copysecret(this)">复制</button>
+        </span>
+        {% else %}—{% endif %}
+      </dd>
+      {% if r.notes %}<dt>说明</dt><dd>{{ r.notes }}</dd>{% endif %}
+      <dt>更新</dt><dd class="small muted">{{ r.updated_at[:16] }} by {{ r.updated_by }}</dd>
+    </dl>
+
+    {% if user.role == 'admin' %}
+    <form method="post" action="/accounts/save" id="acc{{ r.id }}" style="display:none;margin-top:14px;border-top:1px dashed var(--line);padding-top:14px">
+      <input type="hidden" name="id" value="{{ r.id }}">
+      <div class="grid g2">
+        <div><label>名称</label><input type="text" name="label" value="{{ r.label }}"></div>
+        <div><label>平台</label><input type="text" name="platform" value="{{ r.platform }}"></div>
+        <div class="full"><label>登录网址</label><input type="text" name="url" value="{{ r.url }}"></div>
+        <div><label>账号</label><input type="text" name="account" value="{{ r.account }}"></div>
+        <div><label>密码</label><input type="text" name="password" value="{{ r.password }}"></div>
+        <div class="full"><label>说明</label><textarea name="notes" rows="2">{{ r.notes }}</textarea></div>
+        <div><label>排序</label><input type="number" name="sort_order" value="{{ r.sort_order }}"></div>
+      </div>
+      <div class="rowline" style="margin-top:12px">
+        <button class="btn">保存</button>
+        <button class="btn sec" type="button" onclick="toggle('acc{{ r.id }}')">收起</button>
+      </div>
+    </form>
+    <form method="post" action="/accounts/{{ r.id }}/delete" onsubmit="return confirm('删除这条公共账号？')" style="margin-top:8px">
+      <button class="btn danger sm">删除</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+{% else %}
+<div class="card" style="text-align:center;padding:40px">
+  <p style="font-size:32px;margin:0">🔑</p>
+  <h2>还没有公共账号</h2>
+  <p class="muted small">{% if user.role == 'admin' %}点上面「添加账号」把课题组通用投稿邮箱录进来。{% else %}等管理员录入。急用的话直接问管理员。{% endif %}</p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block script %}
+<script>
+function toggle(id) {
+  const el = document.getElementById(id);
+  el.style.display = (el.style.display === 'none' || !el.style.display) ? 'block' : 'none';
+}
+function reveal(btn) {
+  const code = btn.parentElement.querySelector('code');
+  if (btn.textContent === '显示') { code.textContent = code.dataset.secret; btn.textContent = '隐藏'; }
+  else { code.textContent = '••••••••'; btn.textContent = '显示'; }
+}
+function copysecret(btn) {
+  const code = btn.parentElement.querySelector('code');
+  navigator.clipboard.writeText(code.dataset.secret).then(() => {
+    btn.textContent = '已复制'; setTimeout(() => btn.textContent = '复制', 1500);
+  }).catch(() => { btn.textContent = '复制失败'; });
+}
+</script>
+{% endblock %}

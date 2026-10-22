@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block body %}
+
+<h1>新建论文</h1>
+<p class="sub">只有标题是必填的。投稿信息可以现在填，也可以之后再补。</p>
+
+<form method="post" action="/paper/new">
+  <div class="card">
+    <h2>一、论文信息</h2>
+    <div class="grid g2">
+      <div class="full">
+        <label>英文标题 <span style="color:#c0392b">*必填</span></label>
+        <input type="text" name="title" required placeholder="Paper title">
+      </div>
+      <div class="full">
+        <label>中文标题 / 简称（方便认，可不填）</label>
+        <input type="text" name="title_cn" placeholder="例如：图像分割综述">
+      </div>
+      <div>
+        <label>论文负责人（谁写的 / 谁跟进）</label>
+        <input type="text" name="lead_author" list="rosterlist" placeholder="{{ user.display_name }}">
+      </div>
+      <div>
+        <label>通讯作者</label>
+        <input type="text" name="corresponding" list="rosterlist" placeholder="例如：Alice Example">
+      </div>
+      <div class="full">
+        <label>作者顺序（<b>一行写一个作者，从第一作者开始往下排</b>）</label>
+        <textarea name="authors" rows="6" placeholder="San Zhang&#10;Alice Example&#10;Bob Example"></textarea>
+      </div>
+{% if user.role == 'admin' %}
+      <div>
+        <label>{{ owner_label }}的作者位次（管理员填）</label>
+        <select name="author_pos">
+          <option value="">暂不标</option>
+          {% for r in AUTHOR_POS %}<option value="{{ r }}">{{ r }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>&nbsp;</label>
+        <label><input type="checkbox" name="is_corresponding" value="1" style="width:auto"> {{ owner_label }}是通讯作者</label>
+      </div>
+      <div class="full">
+        <label>跟进方式（决定 AI 是否查状态、跟进计划是否活跃）</label>
+        <select name="follow_mode">
+          {% for k, name in FOLLOW_MODES.items() %}<option value="{{ k }}" {% if k == '' %}selected{% endif %}>{{ name }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="full">
+        <label>论文分类（其他论文不占用 P 编号，走 X 序列；合作方论文沿用 P 编号，统计时不计入主序列）</label>
+        <select name="category">
+          <option value="main">主序列</option>
+          <option value="extra">其他论文（不计入主序列）</option>
+          <option value="partner">合作方论文</option>
+        </select>
+      </div>
+{% endif %}
+      <div>
+        <label>当前状态</label>
+        <select name="status">
+          {% for s in PAPER_STATUS %}<option value="{{ s }}" {% if s == '投稿中' %}selected{% endif %}>{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="full">
+        <label>当前情况（一两句，可不填，之后可整段覆盖）</label>
+        <textarea name="current_note" rows="2" placeholder="例如：外审中，等第二位审稿人"></textarea>
+      </div>
+      <div class="full">
+        <label>备注（可不填）</label>
+        <textarea name="notes" rows="2" placeholder="例如：基金信息已确认；图还差 Fig.5"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>二、第 1 次投稿信息（还没投可以整块留空）</h2>
+    <div class="grid g2">
+      <div>
+        <label>期刊 / 会议名</label>
+        <input type="text" name="journal" placeholder="例如：Applied Energy">
+      </div>
+      <div>
+        <label>投稿日期</label>
+        <input type="date" name="submit_date">
+      </div>
+      <div class="full">
+        <label>投稿系统网址</label>
+        <input type="text" name="site_url" placeholder="https://www.editorialmanager.com/<期刊缩写>/">
+      </div>
+      <div>
+        <label>投稿系统账号</label>
+        <input type="text" name="sys_account" placeholder="登录该系统用的邮箱 / 用户名">
+      </div>
+      <div>
+        <label>投稿系统密码</label>
+        <input type="text" name="sys_password" placeholder="转投或换人接手时要用">
+      </div>
+      <div>
+        <label>稿号 Manuscript ID（有就填）</label>
+        <input type="text" name="manuscript_id" placeholder="ABC-D-26-XXXXX">
+      </div>
+      <div>
+        <label>本次投稿状态</label>
+        <select name="sub_status">
+          {% for s in SUBMISSION_STATUS %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <p class="small muted" style="margin:12px 0 0">
+      💡 找不到账号密码？先看 <a href="/accounts">公共投稿账号</a> 页，课题组通用的投稿邮箱都在那里。
+    </p>
+  </div>
+
+  <div class="rowline">
+    <button class="btn">创建论文</button>
+    <a class="btn sec" href="/">取消</a>
+    <span class="small muted">创建之后就能上传投稿包（Word / PDF / LaTeX 压缩包）。</span>
+  </div>
+</form>
+
+<datalist id="rosterlist">
+  {% for r in roster %}
+    {% if r.cn_name %}<option value="{{ r.cn_name }}">{% endif %}
+    {% if r.en_name %}<option value="{{ r.en_name }}">{% endif %}
+  {% endfor %}
+</datalist>
+
+{% endblock %}

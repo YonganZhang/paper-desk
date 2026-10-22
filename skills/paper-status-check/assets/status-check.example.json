@@ -1,0 +1,20 @@
+{
+  "_comment": "复制到 ~/.config/paper-desk/status-check.json（或用环境变量 PAPER_STATUS_CONFIG 指定路径）。字段说明见 references/config.md。",
+  "ledger_cli": "paper",
+  "self_names": ["张三", "San Zhang"],
+  "always_scan": ["alice@example.com"],
+  "blocking_confirm_journals": ["Example Journal A"],
+  "near_acceptance_stages": ["小修", "已录用"],
+  "extra_manuscript_id_patterns": ["XYZ-\\d{4}-\\d{4}", "[A-Z]{5}\\d{5}"],
+  "work_dir": "~/.cache/paper-status-check",
+  "report": {
+    "from": "alice@example.com",
+    "to": ["alice@example.com"],
+    "subject": "【张三】投稿与期刊情况追踪（{date}）",
+    "greeting": "张三您好：",
+    "sender_label": "投稿服务器",
+    "schedule_label": "每周一 10:00",
+    "timezone": "Asia/Shanghai",
+    "out_dir": "~/.local/share/paper-desk/weekly-status"
+  }
+}

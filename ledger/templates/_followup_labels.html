@@ -1,0 +1,16 @@
+{% set stages = {
+  'unverified':'待核验', 'draft':'待投稿', 'waiting_support':'等待客服',
+  'awaiting_author':'等待作者处理', 'submitted':'已提交／等待审稿', 'under_review':'审稿中',
+  'revision_required':'待返修', 'resubmit_ready':'待转投／重投',
+  'awaiting_close':'等待原稿关闭', 'paused':'暂停处理',
+  'accepted':'已录用', 'closed':'已结束'
+} %}
+{% set kinds = {
+  'check':'核查', 'outgoing':'已发邮件／联系', 'incoming':'收到回复',
+  'progress':'实质进展', 'decision':'决定／待决策', 'note':'补充记录', 'state':'计划更新'
+} %}
+{% macro date(value, fallback='未登记') -%}
+  {% if value %}<time datetime="{{ value }}"><span class="tracking-date-part">{{ value[:10] }}</span>{% if value|length > 10 %} <span class="tracking-date-part">{{ value[11:16] }}</span>{% endif %}</time>{% else %}{{ fallback }}{% endif %}
+{%- endmacro %}
+{% macro stage(value) -%}{{ stages.get(value, '待核验') }}{%- endmacro %}
+{% macro kind(value) -%}{{ kinds.get(value, '记录') }}{%- endmacro %}

@@ -1,0 +1,6 @@
+{% extends "base.html" %}{% block body %}
+<h1>专用期刊账号</h1><p>仅管理员可用。加密存储，与投稿轮次独立。</p>
+{% if revealed %}<div class="card"><h2>{{ revealed.name }}</h2><p>账号：{{ revealed.account }}</p><p>密码：<code>{{ revealed.password }}</code></p><a href="/private-accounts">返回并隐藏</a></div>{% endif %}
+{% for r in rows %}<div class="card"><h2>{{ r.name }}</h2><p>{{ r.url }}</p><p>账号 {{ r.account }} · 密码 {{ r.password }}</p><form method="post" action="/private-accounts/reveal"><input type="hidden" name="name" value="{{ r.name }}"><button class="btn">查看登录信息</button></form></div>{% endfor %}
+<form class="card" method="post" action="/private-accounts/save"><h2>新增或更新</h2><label>名称（同名更新）</label><input name="name" required><label>登录网址</label><input name="url" type="url"><label>账号</label><input name="account" autocomplete="off"><label>密码</label><input name="password" type="password" autocomplete="new-password" required><button class="btn">加密保存</button></form>
+{% endblock %}

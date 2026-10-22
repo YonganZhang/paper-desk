@@ -1,0 +1,7 @@
+# 运行依赖（按代码实际 import 列出；Python >= 3.9）。许可证均为 MIT / BSD / Apache-2.0。
+fastapi>=0.110          # Web 框架（MIT）；Jinja2Templates / StaticFiles 来自其依赖 starlette（BSD）
+uvicorn>=0.23           # ASGI 服务器（BSD）
+jinja2>=3.1             # 页面模板（BSD）
+itsdangerous>=2.1       # 登录 cookie 签名（BSD）
+python-multipart>=0.0.7 # 表单与文件上传解析，FastAPI 的 Form/File 需要（Apache-2.0）
+cryptography>=41        # 管理员专用期刊账号的 Fernet 加密（Apache-2.0 / BSD）

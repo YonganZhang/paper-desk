@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block body %}
+
+<h1>我的账号</h1>
+<div class="card" style="max-width:520px">
+  <dl class="kv">
+    <dt>账号</dt><dd class="mono">{{ user.username }}</dd>
+    <dt>姓名</dt><dd>{{ user.display_name }}</dd>
+    <dt>角色</dt><dd>{% if user.role == 'admin' %}管理员（能看到所有人的论文）{% else %}学生（只能看到自己的论文）{% endif %}</dd>
+    <dt>注册时间</dt><dd class="small muted">{{ user.created_at }}</dd>
+  </dl>
+</div>
+
+<div class="card" style="max-width:520px">
+  <h2>修改密码</h2>
+  <form method="post" action="/me/password" class="grid">
+    <div><label>原密码</label><input type="password" name="old" required></div>
+    <div><label>新密码（至少 4 位）</label><input type="password" name="new" required></div>
+    <div><button class="btn">修改</button></div>
+  </form>
+</div>
+
+{% endblock %}

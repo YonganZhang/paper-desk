@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block body %}
+
+<div class="spread" style="margin-bottom:14px">
+  <div>
+    <h1>{% if user.role == 'admin' %}全部论文台账{% else %}我的论文{% endif %}</h1>
+    <p class="sub" style="margin:0">
+      {% if user.role == 'admin' %}
+        共 {{ papers|length }} 篇 · 可以看到每篇是谁录入的
+      {% else %}
+        共 {{ papers|length }} 篇 · 只有你和管理员能看到
+      {% endif %}
+      <span id="live" class="tag" style="margin-left:8px">● 自动刷新中</span>
+    </p>
+  </div>
+  <div class="rowline">
+    <a class="btn sec sm" href="/followups">逐篇跟进计划</a>
+    <a class="btn sec sm" href="/export.csv">导出 CSV</a>
+    <a class="btn" href="/paper/new">+ 新建论文</a>
+  </div>
+</div>
+
+{% if user.role == 'admin' and role_counts %}
+<div class="card tight" style="margin-bottom:16px">
+  <div class="rowline small">
+    <b>我的作者身份统计：</b>
+    {% for r in AUTHOR_POS %}{% if role_counts.get(r) %}
+      <a href="/?role={{ r }}" class="tag" style="text-decoration:none">{{ r }} <b>{{ role_counts[r] }}</b></a>
+    {% endif %}{% endfor %}
+    {% if role_counts.get('__corr__') %}<a href="/?role=__corr__" class="tag s-已录用" style="text-decoration:none">通讯作者 <b>{{ role_counts['__corr__'] }}</b></a>{% endif %}
+    <span class="muted">｜分类：</span>
+    <a href="/?role=__main__" class="tag" style="text-decoration:none">主序列 <b>{{ role_counts.get('__main__', 0) }}</b></a>
+    {% if role_counts.get('__extra__') %}<a href="/?role=__extra__" class="tag" style="text-decoration:none;background:#f2ecfd;color:#6a41c0">其他 <b>{{ role_counts['__extra__'] }}</b></a>{% endif %}
+    {% if role_counts.get('__partner__') %}<a href="/?role=__partner__" class="tag" style="text-decoration:none;background:#eaf5f0;color:#24734f">合作方 <b>{{ role_counts['__partner__'] }}</b></a>{% endif %}
+    <span style="flex:1"></span>
+    {% for st in ['未投稿','在投','已发表'] %}{% if pub_counts.get(st) %}
+      <a href="/?pub={{ st }}" class="tag" style="text-decoration:none">{{ st }} <b>{{ pub_counts[st] }}</b></a>
+    {% endif %}{% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if notice %}<div class="notice">📌 {{ notice }}</div>{% endif %}
+
+<form class="card tight" method="get" action="/">
+  <div class="rowline">
+    <input type="text" name="q" value="{{ q }}" placeholder="搜编号 / 标题 / 作者 / 期刊 / 负责人" style="flex:1;min-width:220px">
+    <select name="status" style="width:auto">
+      <option value="">全部状态</option>
+      {% for s in PAPER_STATUS %}
+      <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ s }}{% if counts.get(s) %}（{{ counts[s] }}）{% endif %}</option>
+      {% endfor %}
+    </select>
+    <select name="pub" style="width:auto">
+      <option value="">全部</option>
+      {% for st in ['未投稿','在投','已发表','已撤稿'] %}{% if pub_counts.get(st) %}
+      <option value="{{ st }}" {% if pub == st %}selected{% endif %}>{{ st }}（{{ pub_counts[st] }}）</option>
+      {% endif %}{% endfor %}
+    </select>
+{% if user.role == 'admin' %}
+    <select name="role" style="width:auto">
+      <option value="">全部身份</option>
+      {% for r in AUTHOR_POS %}
+      <option value="{{ r }}" {% if role == r %}selected{% endif %}>{{ r }}{% if role_counts.get(r) %}（{{ role_counts[r] }}）{% endif %}</option>
+      {% endfor %}
+      <option value="__corr__" {% if role == '__corr__' %}selected{% endif %}>通讯作者{% if role_counts.get('__corr__') %}（{{ role_counts['__corr__'] }}）{% endif %}</option>
+      <option value="__main__" {% if role == '__main__' %}selected{% endif %}>主序列{% if role_counts.get('__main__') %}（{{ role_counts['__main__'] }}）{% endif %}</option>
+      <option value="__extra__" {% if role == '__extra__' %}selected{% endif %}>其他论文（不计入主序列）{% if role_counts.get('__extra__') %}（{{ role_counts['__extra__'] }}）{% endif %}</option>
+      <option value="__partner__" {% if role == '__partner__' %}selected{% endif %}>合作方论文{% if role_counts.get('__partner__') %}（{{ role_counts['__partner__'] }}）{% endif %}</option>
+    </select>
+{% endif %}
+    <button class="btn sec">筛选</button>
+    {% if q or status or role or pub %}<a class="btn sec" href="/">清空</a>{% endif %}
+  </div>
+</form>
+
+{% if papers %}
+<div class="card tablecard">
+<table>
+  <thead>
+    <tr>
+      <th>编号</th>
+      <th>论文标题</th>
+      {% if user.role == 'admin' %}<th>我的身份</th>{% endif %}
+      {% if user.role == 'admin' %}<th>录入人</th>{% endif %}
+      <th>负责人</th>
+      <th>当前状态</th>
+      <th>期刊</th>
+      <th>最近投稿日</th>
+      <th>投稿次数</th>
+      <th>附件</th>
+      <th>更新时间</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for p in papers %}
+    <tr>
+      <td class="small mono" data-label="编号"><b>{{ p.code or '—' }}</b>
+        {% if p.category == 'extra' and user.role == 'admin' %}<div><span class="tag" style="background:#f2ecfd;color:#6a41c0">其他</span></div>{% endif %}
+        {% if p.category == 'partner' and user.role == 'admin' %}<div><span class="tag" style="background:#eaf5f0;color:#24734f">合作方</span></div>{% endif %}
+      </td>
+      <td class="head">
+        <a href="/paper/{{ p.id }}"><b>{{ p.title }}</b></a>
+        {% if p.title_cn %}<div class="small muted">{{ p.title_cn }}</div>{% endif %}
+        {% if p.current_note %}<div class="small muted" title="{{ p.current_note }}">{{ p.current_note[:60] }}{% if p.current_note|length > 60 %}…{% endif %}</div>{% endif %}
+      </td>
+      {% if user.role == 'admin' %}
+      <td class="small" data-label="我的身份">
+        {{ p.author_pos or '—' }}{% if p.is_corresponding %}<div><span class="tag s-已录用">通讯</span></div>{% endif %}
+      </td>
+      {% endif %}
+      {% if user.role == 'admin' %}
+      <td class="small" data-label="录入人">{{ p.owner_name }}<span class="muted"> @{{ p.owner_username }}</span></td>
+      {% endif %}
+      <td class="small" data-label="负责人">{{ p.lead_author or '—' }}</td>
+      <td data-label="状态">
+        <span class="tag s-{{ p.status }}">{{ p.status }}</span>
+        {% if p.n_sub > 1 %}<span class="tag" title="转投过 {{ p.n_sub - 1 }} 次">第 {{ p.n_sub }} 次</span>{% endif %}
+      </td>
+      <td class="small" data-label="期刊"><b>{{ p.last_journal or '—' }}</b></td>
+      <td class="small" data-label="最近投稿">{{ p.last_date or '—' }}</td>
+      <td class="small" data-label="投稿次数">
+        {% if p.n_sub > 1 %}<a href="/paper/{{ p.id }}"><b>{{ p.n_sub }} 次</b>（转投 {{ p.n_sub - 1 }} 次·看历史）</a>{% else %}{{ p.n_sub }}{% endif %}
+      </td>
+      <td class="small" data-label="附件">{{ p.n_file }}</td>
+      <td class="small muted" data-label="更新">{{ p.updated_at[:16] }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:44px 20px">
+  <p style="font-size:34px;margin:0">📝</p>
+  <h2>还没有论文记录</h2>
+  <p class="muted small">点右上角「新建论文」，把标题、作者顺序和投稿信息填进去就行。</p>
+  <p><a class="btn" href="/paper/new">+ 新建论文</a> <a class="btn sec" href="/guide">先看教程</a></p>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block script %}
+<script>
+// 轻量“实时”：每 15 秒问一次服务器有没有变化，有变化才刷新页面
+let last = null;
+async function tick() {
+  try {
+    const r = await fetch('/api/pulse', {cache: 'no-store'});
+    const j = await r.json();
+    if (last !== null && j.v !== last) { location.reload(); }
+    last = j.v;
+    document.getElementById('live').textContent = '● 自动刷新中';
+  } catch (e) {
+    document.getElementById('live').textContent = '○ 连接断开';
+  }
+}
+tick();
+setInterval(tick, 15000);
+</script>
+{% endblock %}

@@ -1,0 +1,12 @@
+[Unit]
+# 每周一 10:00（服务器本地时间）跑 paper-weekly-report.service。Persistent=true：机器停机错过时开机后补跑。
+# 要按指定时区跑，在时间后面加时区名，例如 OnCalendar=Mon *-*-* 10:00:00 Asia/Shanghai
+Description=Weekly paper submission status report, Monday 10:00
+
+[Timer]
+OnCalendar=Mon *-*-* 10:00:00
+Persistent=true
+Unit=paper-weekly-report.service
+
+[Install]
+WantedBy=timers.target

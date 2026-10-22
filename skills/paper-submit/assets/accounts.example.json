@@ -1,0 +1,41 @@
+[
+  {
+    "system": "Editorial Manager",
+    "login_url": "https://www.editorialmanager.com/abcd/",
+    "person": "张三",
+    "username": "alice@example.com",
+    "email": "alice@example.com",
+    "password_key": "PAPER_SUBMIT_DEFAULT_PASSWORD",
+    "login": "password",
+    "browser_profile": "zhang-san",
+    "paper": "P01 P03",
+    "registered": "2026-01-15",
+    "email_verified": true
+  },
+  {
+    "system": "Elsevier new submission",
+    "login_url": "https://submit.elsevier.com/",
+    "person": "张三",
+    "username": "alice@example.com",
+    "email": "alice@example.com",
+    "password_key": "PAPER_SUBMIT_DEFAULT_PASSWORD",
+    "login": "elsevier-sso",
+    "browser_profile": "zhang-san",
+    "paper": "P05",
+    "registered": "2026-02-01",
+    "email_verified": true
+  },
+  {
+    "system": "Springer Nature",
+    "login_url": "https://submission.springernature.com/",
+    "person": "李四",
+    "username": "bob@example.org",
+    "email": "bob@example.org",
+    "password_key": "PAPER_SUBMIT_DEFAULT_PASSWORD",
+    "login": "password",
+    "browser_profile": "li-si",
+    "paper": "P07",
+    "registered": "2026-03-10",
+    "email_verified": false
+  }
+]

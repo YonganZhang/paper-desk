@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}{{ site_title }}{% endblock %}</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>📄</text></svg>">
+</head>
+<body data-timezone="{{ timezone }}" data-tz-offset="{{ tz_offset }}">
+{% if user %}
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="/">📄 {{ site_title }}</a>
+    <nav>
+      <a href="/">论文台账</a>
+      <a href="/followups">逐篇跟进</a>
+      <a href="/accounts">公共投稿账号</a>
+      <a href="/roster">花名册</a>
+      <a href="/guide">新手教程</a>
+      {% if user.role == 'admin' %}<a href="/admin">管理</a>{% endif %}
+    </nav>
+    <div class="who">
+      <a href="/me">{{ user.display_name }}{% if user.role == 'admin' %} <span class="tag admin">管理员</span>{% endif %}</a>
+      <a class="ghost" href="/logout">退出</a>
+    </div>
+  </div>
+</header>
+{% endif %}
+
+<main class="wrap page">
+  {% if request.query_params.get('msg') %}
+    <div class="flash">{{ request.query_params.get('msg') }}</div>
+  {% endif %}
+  {% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
+  {% block body %}{% endblock %}
+</main>
+
+<footer class="wrap foot">
+  {{ site_title }} · 数据仅登录后可见 · 有问题找管理员
+</footer>
+{% block script %}{% endblock %}
+</body>
+</html>

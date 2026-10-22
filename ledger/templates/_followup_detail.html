@@ -1,0 +1,112 @@
+{% import "_followup_labels.html" as labels %}
+{% set f = followup %}
+<section class="card followup-detail" id="followup" data-paper-code="{{ paper.code }}" data-version="{{ f.version or 0 }}">
+  <div class="spread">
+    <div><h2>这篇论文的跟进</h2>
+      <div class="rowline small"><span class="tag tracking-stage stage-{{ f.stage }}">{{ labels.stage(f.stage) }}</span>
+        {% if f.stage_source == 'ledger' %}<span class="muted">按台账审稿阶段{% if f.review_stage %}（{{ f.review_stage }}）{% endif %}</span>{% endif %}
+        {% if f.follow_mode_label %}<span class="tag">跟进方式：{{ f.follow_mode_label }}</span>{% endif %}
+        {% if not f.active %}<span class="tag">已归档 · 历史保留</span>{% endif %}
+        {% if f.decision_required %}<span class="tag tracking-alert">待你决策</span>{% endif %}
+      </div>
+    </div>
+    <div class="rowline"><a class="btn sec sm" href="/followups">查看所有跟进</a><button class="btn sec sm" type="button" data-followup-toggle="followup-edit">更新计划</button></div>
+  </div>
+  <dl class="tracking-summary">
+    {% if f.target_journal %}<div><dt>拟投／正在办理的期刊</dt><dd>{{ f.target_journal }}</dd></div>{% endif %}
+    {% if f.ledger_journal and f.ledger_journal != f.current_journal %}<div><dt>历史投稿轮次的期刊</dt><dd>{{ f.ledger_journal }}</dd></div>{% endif %}
+    <div><dt>未解决的问题</dt><dd>{{ f.blocked_reason or ('尚未核验当前状态' if f.stage == 'unverified' else '暂无已登记阻碍') }}</dd></div>
+    <div><dt>正在等谁</dt><dd>{{ f.waiting_for or '—' }}</dd></div>
+    <div><dt>下一步</dt><dd>{{ f.next_action or '待补充' }}<span class="small muted"> · 执行人：{{ f.action_owner or '待核实' }}</span></dd></div>
+    <div><dt>怎样才算完成</dt><dd>{{ f.completion_condition or '尚未登记完成条件' }}</dd></div>
+    {% if f.completion_evidence %}<div><dt>完成证据</dt><dd>{{ f.completion_evidence }}</dd></div>{% endif %}
+    {% if f.decision_required %}<div class="tracking-decision"><dt>需要你决策</dt><dd>{{ f.decision_request or '待明确具体决策内容' }}</dd></div>{% endif %}
+    <div><dt>最近实质进展</dt><dd>{{ labels.date(f.last_progress_at, '尚无核实日期') }}{% if f.days_without_progress is defined and f.days_without_progress is not none %} · {{ f.days_without_progress }} 天无实质进展{% endif %}</dd></div>
+    <div><dt>最近核查</dt><dd>{{ labels.date(f.last_checked_at, '尚未核查') }}</dd></div>
+    <div><dt>下次复查</dt><dd>{{ labels.date(f.next_check_at, '待安排') }}</dd></div>
+    <div><dt>正式截止</dt><dd>{{ labels.date(f.due_at, '暂无明确期限') }}{% if f.due_source == 'ledger' %}<span class="small muted"> · 台账返修截止</span>{% endif %}</dd></div>
+    {% if f.evidence_source %}<div><dt>当前状态依据</dt><dd>{{ f.evidence_source }} · {{ labels.date(f.evidence_at, '证据时间待核验') }}</dd></div>{% endif %}
+    {% if not f.active %}<div><dt>归档原因</dt><dd>{{ f.archive_reason or '阶段已结束' }}</dd></div>{% endif %}
+  </dl>
+  <p class="small muted">发信与核查会留痕；只有确实改变处理进度的证据才更新实质进展日期。</p>
+  <p class="flash" data-followup-message role="status" hidden></p>
+
+  <form id="followup-edit" data-followup-form="state" hidden>
+    <div class="grid g2">
+      {# 审稿阶段由台账推导（paper progress），这里只选流程型卡点；「跟随台账」存为 unverified #}
+      {% set held = ['waiting_support', 'awaiting_author', 'awaiting_close', 'paused'] %}
+      {% set chosen = f.stored_stage if f.stored_stage in held else 'unverified' %}
+      <div><label>流程卡点（审稿阶段由台账推导）<select name="stage">
+        <option value="unverified" {% if chosen == 'unverified' %}selected{% endif %}>跟随台账审稿阶段</option>
+        {% for value in held %}<option value="{{ value }}" {% if chosen == value %}selected{% endif %}>{{ labels.stage(value) }}</option>{% endfor %}
+      </select></label></div>
+      <div><label>优先级<select name="priority"><option value="normal" {% if f.priority == 'normal' %}selected{% endif %}>常规</option><option value="high" {% if f.priority == 'high' %}selected{% endif %}>优先处理</option><option value="urgent" {% if f.priority == 'urgent' %}selected{% endif %}>紧急</option></select></label></div>
+      <div class="full"><label>拟投／正在办理的期刊<input type="text" name="target_journal" value="{{ f.target_journal or '' }}" placeholder="留空时沿用当前正式投稿轮次；填写不会新建正式投稿"></label></div>
+      <div class="full"><label>未解决的问题<textarea name="blocked_reason" rows="2">{{ f.blocked_reason or '' }}</textarea></label></div>
+      <div><label>正在等待谁<input name="waiting_for" type="text" value="{{ f.waiting_for or '' }}" placeholder="例如：客服、编辑部、作者本人"></label></div>
+      <div><label>下一步执行人<input name="action_owner" type="text" value="{{ f.action_owner or '' }}"></label></div>
+      <div class="full"><label>下一步做什么<textarea name="next_action" rows="2">{{ f.next_action or '' }}</textarea></label></div>
+      <div class="full"><label>当前事项的完成条件<textarea name="completion_condition" rows="2">{{ f.completion_condition or '' }}</textarea></label></div>
+      <div class="full"><label>完成证据<textarea name="completion_evidence" rows="2" placeholder="结束／归档时填写具体回执或通知">{{ f.completion_evidence or '' }}</textarea></label></div>
+      <div><label>下次复查日期（{{ timezone }}）<input name="next_check_at" type="date" value="{{ f.next_check_at[:10] if f.next_check_at else '' }}"></label></div>
+      {% if f.due_source == 'ledger' %}
+      <div><label>正式截止日期（台账返修截止，用 paper progress --due 修改）<input type="date" value="{{ f.due_at[:10] }}" disabled></label></div>
+      {% else %}
+      <div><label>正式截止日期（{{ timezone }}）<input name="due_at" type="date" value="{{ f.due_at[:10] if f.due_at else '' }}"></label></div>
+      {% endif %}
+      <div><label>多少天无实质进展需提醒（0 为关闭）<input name="stale_after_days" type="number" min="0" max="365" value="{{ f.stale_after_days if f.stale_after_days is defined else 3 }}"></label></div>
+      <div><label><input type="checkbox" name="decision_required" {% if f.decision_required %}checked{% endif %} style="width:auto"> 需要用户决策</label></div>
+      <div class="full"><label>具体需要决定什么<textarea name="decision_request" rows="2">{{ f.decision_request or '' }}</textarea></label></div>
+      <div><label>当前状态依据<input type="text" name="evidence_source" value="{{ f.evidence_source or '' }}" placeholder="例如：系统页面／决定信／台账未核验"></label></div>
+      <div><label>证据日期（{{ timezone }}）<input type="date" name="evidence_at" value="{{ f.evidence_at[:10] if f.evidence_at else '' }}"></label></div>
+      <div class="full"><label>相关规则／依据<textarea name="policy_reference" rows="2" placeholder="例如：编辑部明确允许重投的邮件日期">{{ f.policy_reference or '' }}</textarea></label></div>
+    </div>
+    <div class="rowline"><button class="btn">保存更新</button><button type="button" class="btn sec" data-followup-toggle="followup-edit">收起</button></div>
+  </form>
+
+  <div class="spread tracking-history-heading"><h3>按日期跟进记录</h3><button class="btn sm" type="button" data-followup-toggle="followup-event-new">+ 记录一次处理</button></div>
+  <form id="followup-event-new" data-followup-form="event" hidden>
+    <div class="grid g2">
+      <div><label>发生时间（{{ timezone }}）<input type="datetime-local" name="occurred_at" required data-default-now></label></div>
+      <div><label>记录类型<select name="kind">{% for value, name in labels.kinds.items() %}{% if value != 'state' %}<option value="{{ value }}">{{ name }}</option>{% endif %}{% endfor %}</select></label></div>
+      <div class="full"><label>做了什么／收到什么<textarea name="text" rows="3" required></textarea></label></div>
+      <div class="full"><label>证据位置<input name="evidence_ref" type="text" placeholder="例如：邮件主题及时间、工单号、系统页面核查时间"></label></div>
+    </div>
+    <div class="rowline"><button class="btn">保存记录</button><button type="button" class="btn sec" data-followup-toggle="followup-event-new">取消</button></div>
+  </form>
+  <ol class="followup-timeline">
+    {% for event in followup_events %}
+    <li><div class="rowline small"><span>{{ labels.date(event.occurred_at) }}</span><span class="tag">{{ labels.kind(event.kind) }}</span></div>
+      <div class="followup-event-text">{{ event.text }}</div>
+      {% if event.evidence_ref %}<p class="small muted">证据：{{ event.evidence_ref }}</p>{% endif %}
+    </li>
+    {% else %}<li class="muted">尚无跟进记录。历史投稿和审稿通知仍保留在下方。</li>{% endfor %}
+  </ol>
+  {% if followup_state_history %}
+  <details class="helper"><summary>计划调整历史（{{ followup_state_history|length }} 次，保留原记录）</summary>
+    <ol class="followup-timeline">
+    {% for change in followup_state_history %}{% set prior = change.snapshot %}
+      <li><div class="rowline small">{{ labels.date(change.created_at) }}<span class="tag">计划调整</span><span>{{ labels.stage(prior.stage) }}</span></div>
+        <dl class="kv">
+          {% if prior.blocked_reason %}<dt>问题</dt><dd>{{ prior.blocked_reason }}</dd>{% endif %}
+          {% if prior.waiting_for %}<dt>等待对象</dt><dd>{{ prior.waiting_for }}</dd>{% endif %}
+          {% if prior.next_action %}<dt>下一步</dt><dd>{{ prior.next_action }}</dd>{% endif %}
+          {% if prior.completion_condition %}<dt>完成条件</dt><dd>{{ prior.completion_condition }}</dd>{% endif %}
+          {% if prior.decision_required %}<dt>待决策</dt><dd>{{ prior.decision_request or '需用户决策' }}</dd>{% endif %}
+          {% if not prior.active and prior.archive_reason %}<dt>归档原因</dt><dd>{{ prior.archive_reason }}</dd>{% endif %}
+        </dl>
+      </li>
+    {% endfor %}
+    </ol>
+  </details>
+  {% endif %}
+  {% if f.follow_mode in ['ai', 'self', 'student', 'watch', 'partner'] %}
+  <p class="small muted">是否活跃跟进由跟进方式「{{ f.follow_mode_label }}」决定；要改请编辑论文信息里的跟进方式（或 paper edit --follow-mode）。</p>
+  {% elif f.active %}
+  <details class="helper"><summary>结束活动跟进并归档</summary><p class="small muted">录用或事项结束后移出活动表，保留全部历史。</p>
+    <form data-followup-form="archive"><label>归档原因<input type="text" name="archive_reason" required></label><button class="btn sec sm">归档这篇跟进</button></form>
+  </details>
+  {% elif f.stage not in ['accepted', 'closed'] %}
+  <form data-followup-form="restore"><button class="btn sec sm">恢复到活动跟进</button></form>
+  {% endif %}
+</section>
