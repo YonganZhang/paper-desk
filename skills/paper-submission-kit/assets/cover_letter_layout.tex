@@ -1,0 +1,45 @@
+% Cover-letter layout, filled by ../scripts/render_cover_letter.py. Placeholders are <<NAME>>.
+% Edit the layout here only; letters themselves are Markdown files (see cover_letter.md in this folder).
+\documentclass[a4paper,10pt]{article}
+\usepackage[top=1.2cm,bottom=1.2cm,left=1.6cm,right=1.6cm]{geometry}
+\usepackage{fontspec}
+\setmainfont{TeX Gyre Termes}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\pagestyle{empty}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt plus 1pt minus 0.5pt}
+\setlength{\emergencystretch}{2em}
+\setlist{leftmargin=1.5em,itemsep=2pt,topsep=1pt,parsep=0pt}
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+% One signer column: signature image or an empty box of the same height, then name, title,
+% affiliation lines and email.
+\newcommand{\signer}[4]{%
+  \begin{minipage}[t]{<<SIGNER_WIDTH>>\textwidth}\raggedright\footnotesize
+    \parbox[b][0.95cm][b]{\linewidth}{#1}\\[1pt]
+    \textbf{#2}\\ #3\\
+    Email: \href{mailto:#4}{#4}
+  \end{minipage}}
+
+\begin{document}
+
+<<LOGOS>>
+
+\vspace{2pt}
+\begin{center}{\large\bfseries Cover Letter}\end{center}
+\vspace{-4pt}
+
+\textbf{Title:} <<TITLE>>\\
+\textbf{Authors:} <<AUTHORS>>
+<<DATE>>
+\vspace{2pt}
+<<BODY>>
+
+<<CLOSING>>
+
+\textbf{<<SIGNER_LABEL>>}\\[2pt]
+<<SIGNERS>>
+
+\end{document}

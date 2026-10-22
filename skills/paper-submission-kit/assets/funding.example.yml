@@ -1,0 +1,46 @@
+# Funding registry template. All grants below are fictitious placeholders; replace them with your group's grants
+# in a private project file (grant numbers and project names are often not meant for public repositories).
+# How to use it: references/declarations.md ("基金与致谢").
+schema: funding-registry/1.0
+updated: YYYY-MM-DD
+usage:
+  - "Pick the research direction of the paper, start from its default grants and statement, and let the authors confirm the final list."
+  - "Copy grant numbers and statements verbatim; change wording only to fit the journal's format (see formats)."
+  - "Never put grant numbers in cover letters. Record a funder's full name only with a source (paper, official page or the PI)."
+  - "When a paper uses a new grant or a new wording, add it here together with the paper it was used in."
+
+directions:
+  example-direction:
+    scope: "Which papers this direction covers, e.g. water-network papers of one sub-group."
+    grants: [nsfc-xxxxxxxx, example-foundation-0000]
+    statement: >-
+      This work was supported by the National Natural Science Foundation of China (grant number XXXXXXXX)
+      and the Example Science Foundation (grant number EX-0000-000).
+    statement_zh: "基金项目：国家自然科学基金（编号 XXXXXXXX）；示例科学基金（编号 EX-0000-000）。"
+    funder_role: >-
+      The funders had no role in study design, data collection, analysis or interpretation, writing of the report
+      or the decision to submit the article for publication.
+    computing: "Computational resources were provided by the Example Computing Centre."
+    used_in:
+      - "<paper short name>, <journal>, <YYYY-MM>"
+  unfunded:
+    scope: "Papers without external funding. Confirm with the authors."
+    statement: "This research received no external funding."
+    note: "Some journals want this sentence, others want the section omitted; follow the guide."
+
+grants:
+  nsfc-xxxxxxxx:
+    number: "XXXXXXXX"
+    funder: "National Natural Science Foundation of China"
+    funder_zh: "国家自然科学基金"
+    pi: "张三"                    # optional; who to ask when wording is unclear
+  example-foundation-0000:
+    number: "EX-0000-000"
+    funder: "Example Science Foundation"
+    source: "<official page or paper where the full name was confirmed, with date>"
+
+formats:
+  elsevier: "Funding section, grants joined by semicolons: 'This work was supported by <Funder> [grant number X]; <Funder> [grant number Y].' Add the funder_role sentence ('Role of the funding source')."
+  nature_portfolio: "Acknowledgements or Funding section, grants joined by commas with the grant number in parentheses, then the funder_role sentence if required."
+  ieee: "First-page footnote: 'This work was supported in part by <Funder> under Grant X.'"
+  chinese_journal: "首页脚注 statement_zh；英文摘要页按期刊要求另给英文。"

@@ -1,0 +1,29 @@
+# Author roster read by scripts/render_cover_letter.py (--roster). All people below are fictitious.
+# Copy this file into your own (private) paper project, replace the entries, and keep it out of public repositories.
+# Signature images: put <id>.png next to this file under signatures/ (also kept private); logos under logos/.
+schema: author-roster/1.0
+people:
+  zhang-san:                          # id used in the letter's `signers`; also the signature file stem
+    name: San Zhang                   # English name as printed; no degree suffixes such as "Ph.D."
+    name_zh: 张三                      # optional, for Chinese-language journals
+    title: Professor
+    affiliation:                      # lines printed under the title, usually department + institution, city
+      - School of Example Engineering
+      - Example University, Example City
+    email: zhangsan@example.com
+    orcid: 0000-0000-0000-0000        # optional
+  li-si:
+    name: Si Li
+    name_zh: 李四
+    title: Associate Professor
+    affiliation:
+      - Department of Example Science
+      - Example Institute of Technology, Example City
+    email: lisi@example.com
+  alice-li:
+    name: Alice Li
+    title: PhD Candidate
+    affiliation:
+      - School of Example Engineering
+      - Example University, Example City
+    email: alice@example.com

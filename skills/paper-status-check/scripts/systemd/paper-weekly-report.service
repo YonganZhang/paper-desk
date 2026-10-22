@@ -10,6 +10,7 @@ Type=oneshot
 Environment=PATH=@PATH@
 # 密码、代理等环境变量（PAPER_SUBMIT_PASSWORD_CMD、邮箱 password_env 指向的变量、HTTPS_PROXY…）放这里，权限 0600
 EnvironmentFile=-%h/.config/paper-desk/status-check.env
+# 可选：行末加 --remind，周报之后顺带提醒组内跟进人（先手动跑不加 --send 的预览，见 references/reminders.md）
 ExecStart=/usr/bin/env python3 -I @SKILL_DIR@/scripts/weekly_report.py --send
 TimeoutStartSec=1800
 StandardOutput=journal

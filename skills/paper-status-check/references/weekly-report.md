@@ -23,7 +23,7 @@
 2. 和上周相比系统状态的变化（对比上一份存档 json）。
 3. 近 N 天的期刊来信（同一封信在几个邮箱里各有一份时合并）。
 4. 各篇当前状态：系统读到的状态和日期、合著者确认进度；没读到的写台账状态。
-5. 没查到的：登录失效、列表里没有本稿、系统没接入自动查询、浏览器 profile 被占用、邮箱读取失败。
+5. 没查到的：登录失效、列表里没有本稿、系统没接入自动查询、浏览器 profile 被占用、邮箱读取失败；加 `--remind` 时还列出无法提醒的人（负责人没在 `people` 里登记邮箱、外部人员未开 `include_external`）。
 
 ## 行为
 
@@ -39,7 +39,15 @@ python3 -I skills/paper-status-check/scripts/weekly_report.py               # �
 python3 -I skills/paper-status-check/scripts/weekly_report.py --send --test # 发一封主题带【测试】的信
 ```
 
-参数：`--send` 发信；`--test` 主题前加【测试】；`--no-browser` 不读系统页；`--no-checkin` 不记台账；`--days N` 扫多少天的来信。
+参数：`--send` 发信；`--test` 主题前加【测试】；`--no-browser` 不读系统页；`--no-checkin` 不记台账；`--days N` 扫多少天的来信；`--remind` 周报之后顺带催人跟进。
+
+## 催人跟进 `--remind`
+
+周报打印（和发出）之后，按 [reminders.md](reminders.md) 的规则给组内跟进人各发一封汇总提醒：返修将到期、跟进计划卡住、在审太久没进展、旧轮未关闭。
+
+- 遵守 `--send`：不加只打印提醒预览；`--send --test` 时周报照发（主题带【测试】），提醒只预览，不发给跟进人。
+- 无法提醒的人写进周报第五节；存档 json 的 `reminders` 字段记提醒计划。
+- 有提醒没发出时，脚本以非零退出（周报本身已经发出），日志里看得到原因。
 
 ## 定时（systemd 用户单元）
 
@@ -61,3 +69,4 @@ journalctl --user -u paper-weekly-report -n 50          # 日志
 - 用户退出登录后定时器也要跑，需要 `loginctl enable-linger $USER`（可能需要 root 或 sudo 权限）。
 - 默认按服务器本地时间每周一 10:00 跑；要固定时区，在 timer 的 `OnCalendar` 后面加时区名。
 - 改了模板以后重新执行上面的安装命令。
+- 要每周顺带催人跟进：把 service 模板 `ExecStart` 行末的 `--send` 改成 `--send --remind`，再重新安装。先手动跑一次 `weekly_report.py --remind`（不加 `--send`）看预览，确认 `people` 和收件人无误再开。

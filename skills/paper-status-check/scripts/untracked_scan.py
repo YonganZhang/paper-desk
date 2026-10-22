@@ -2,7 +2,7 @@
 """找台账漏登的投稿：扫本人可读邮箱（配置 always_scan）里的投稿确认信，列出信里有、台账里没有的稿号（只读）。
 
 整篇漏登、漏登一轮（例如转投后忘了 paper submit）都能靠它兜底。每周报告会调用 scan()，把漏登的稿号放进「需要您处理」。
-用法：untracked_scan.py [--days 30] [--json]。看信用 `mailboxes.py read <地址> <uid>`；补录按台账规则（新轮用 paper submit，更早的轮次加 --history）。
+用法：untracked_scan.py [--days 30] [--json]。看信用 `../paper-mailbox/scripts/mailboxes.py read <地址> <uid>`；补录按台账规则（新轮用 paper submit，更早的轮次加 --history）。
 """
 import argparse
 import imaplib
@@ -14,8 +14,8 @@ from email import message_from_bytes
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # -I 运行时脚本目录不在 sys.path
-import mailboxes  # noqa: E402
 import settings  # noqa: E402
+from settings import mailboxes  # noqa: E402  paper-mailbox/scripts/mailboxes.py
 
 SUBJECTS = ("Submission Confirmation", "Confirming your submission", "Manuscript Received", "Manuscript ID",
             "Submission to", "successfully submitted", "has been submitted", "Acknowledg", "Confirm co-authorship",

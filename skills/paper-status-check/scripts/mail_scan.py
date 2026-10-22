@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """一次扫完多个邮箱：按稿号、题目、中文刊名找本人跟进论文的期刊来信（只读，只取信头）。
 
-每个邮箱只连一次，服务器端按日期过滤，信头分批取回，所有论文的关键词一起匹配。连接和凭证走同目录的 mailboxes.py。
+每个邮箱只连一次，服务器端按日期过滤，信头分批取回，所有论文的关键词一起匹配。连接和凭证走技能 paper-mailbox 的 mailboxes.py（settings 加载）。
 要扫的邮箱：配置 always_scan 里的本人邮箱，加上邮箱登记里 readable=true 且 author_links 关联到本篇的邮箱。
 用法：mail_scan.py P04 P10 … [--since YYYY-MM-DD] [--extra-box 地址] [--json]
-不给 --since 时，从该篇当前轮投稿日前 3 天起。读正文用 `mailboxes.py read <地址> <uid>`。
+不给 --since 时，从该篇当前轮投稿日前 3 天起。读正文用 `../paper-mailbox/scripts/mailboxes.py read <地址> <uid>`。
 """
 import argparse
 import imaplib
@@ -16,8 +16,8 @@ from email import message_from_bytes
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # -I 运行时脚本目录不在 sys.path
-import mailboxes  # noqa: E402
 import settings  # noqa: E402
+from settings import mailboxes  # noqa: E402  paper-mailbox/scripts/mailboxes.py
 
 JUNK = ("Junk", "Junk Email", "Spam", "[Gmail]/Spam", "垃圾邮件")
 CJK = re.compile(r"[一-鿿]")

@@ -16,7 +16,7 @@ description: "维护课题组投稿台账（PaperDesk ledger）：登记投稿�
 | 旧轮结局 | `outcome`：被拒／撤回／编辑建议转投／编辑移除／未关闭 | 不要改旧轮的期刊名 |
 | 谁跟、AI 怎么做 | 负责人（姓名）+ 跟进方式 `follow_mode` | 不要在备注里写"本人自查"之类的暗号 |
 
-跟进方式：`ai`=AI 代查（登录系统、查来信）；`self`=本人自查（AI 跳过）；`student`=学生自管（AI 不查不提醒）；`watch`=学生改稿，AI 只提醒返修截止；`partner`=合作方自管。
+跟进方式：`ai`=AI 代查（登录系统、查来信）；`self`=本人自查（AI 跳过）；`student`=学生自管（AI 不登录查稿；开了催人跟进时每周提醒学生）；`watch`=学生改稿，周报里给本人列返修截止；`partner`=合作方自管（AI 不查、不提醒，旧轮未关闭也不报）。
 
 ## 常用操作
 
@@ -27,6 +27,7 @@ description: "维护课题组投稿台账（PaperDesk ledger）：登记投稿�
 | 补录更早的一轮 | `paper submit 编号 --history --journal … --date … --outcome 被拒` |
 | 改某轮（稿号、结果日、结局） | `paper sub-edit 记录号 --ms-id … --result-date … --outcome …` |
 | 审稿阶段 | `paper progress 编号 --stage 外审中 --date 系统状态日 --note …` |
+| 返修 | 决定信 `review-add --stage 大修 --due 截止日` 录全文；提交返修后 `progress --stage 返修已提交`，系统给的新稿号（如 `…R1`）用 `sub-edit 记录号 --ms-id` 更新本轮，**不新增一轮**（返修不是转投）；改稿流程见 `../paper-revision/` |
 | 决定信与返修截止 | `paper review-add 编号 --seq N --text-file 决定信.txt --stage 大修 --due 截止日` |
 | 只记一次核查（无变化） | `paper check-in 编号 --note …` |
 | 当前情况（一两句，可覆盖） | `paper edit 编号 --current "…"` |

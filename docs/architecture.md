@@ -14,11 +14,15 @@
    ┌───────────┴────────────┐                 ┌────────────┴─────────────┐
    │ skills/paper-submit    │                 │ skills/paper-status-check │
    │ 虚拟屏幕里的 Chromium   │                 │ 登录系统读列表页 + 扫邮箱   │
-   │ 按网页元素填表投稿       │                 │ 每周报告 · 漏登扫描        │
+   │ 按网页元素填表投稿       │                 │ 每周报告 · 催人跟进 · 漏登  │
    └────────────────────────┘                 └───────────────────────────┘
+       ▲ 材料          ▲ 返修包                     ▲ 收信 / 发信
+   paper-submission-kit  paper-revision        skills/paper-mailbox（邮箱登记与 IMAP/SMTP）
                ▲                                           ▲
                └──────── skills/paper-ledger：怎么改台账的规矩 ─────────┘
 ```
+
+一篇论文的生命周期：投稿前材料（`paper-submission-kit`）→ 投稿（`paper-submit`，终点动作前停下等人批准）→ 登记（`paper-ledger`）→ 跟进（`paper-status-check` 查状态、读来信、每周报告、提醒负责人）→ 返修（`paper-revision`，再经 `paper-submit` 提交）→ 录用或转投（转投新增一轮）。
 
 ## 数据模型（摘要）
 
@@ -45,5 +49,7 @@
 ## 自动化
 
 - **每周报告**：`skills/paper-status-check/scripts/weekly_report.py --send`，用 systemd 用户定时器每周跑一次。按跟进方式分流，登录投稿系统读列表页、扫邮箱来信，汇总成一封邮件；系统页读到状态就给台账记一次核查。
+- **催人跟进**：`skills/paper-status-check/scripts/reminders.py`（或周报加 `--remind`）按台账给组内负责人各发一封汇总提醒：返修将到期、跟进计划卡住、在审太久没进展、旧投稿流程没关。收件人只来自配置里登记的组内人员；默认只预览，`--send` 才发；同一件事 7 天内不重复，发出后在台账记一条跟进事件；不给期刊或编辑部发信。
 - **漏登扫描**：同一脚本顺带扫投稿确认信，列出台账里没有的稿号。
 - **体检**：`access_audit.py` 检查每篇"AI 代查"的论文是否有一条实测可用的查询路径（账号能登录、列表页能看到这个稿号、来信邮箱读得到）。
+- **邮箱**：所有收发信只经 `skills/paper-mailbox/scripts/mailboxes.py`（IMAP 只读、SMTP 默认预览）；它同时维护「邮箱 → 人 → 论文」登记，`audit` 检查同一投稿系统里一个邮箱只对应一个人。仓库不带任何真实邮箱，部署者自己登记。

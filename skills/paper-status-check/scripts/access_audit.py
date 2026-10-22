@@ -13,8 +13,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # -I 运行时脚本目录不在 sys.path
-import mailboxes  # noqa: E402
 import settings  # noqa: E402
+from settings import mailboxes  # noqa: E402  paper-mailbox/scripts/mailboxes.py
 
 paper = settings.paper
 PAPER = settings.PAPER_CMD

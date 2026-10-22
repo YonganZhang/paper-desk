@@ -38,7 +38,7 @@
    - 看到稿号后，记一条 `[可查性已验证]` 跟进事件。
    - 账号还没按编号登记的，在 `accounts.json` 该条的 `paper` 字段补上编号（空格分隔）。
 4. **补邮箱登记。** 确认后的作者和邮箱，在 `mailboxes.json` 该地址的 `author_links` 里加上这篇论文；再跑 `access_audit.py` 复核。
-   - 系统通讯作者的邮箱读不到时，看能否接入：授权码存进你们的凭证库，配置里写 `password_env` 或 `password_cmd`，`scripts/mailboxes.py check <地址>` 通过后标 `readable: true`。
+   - 系统通讯作者的邮箱读不到时，看能否接入：授权码存进你们的凭证库，配置里写 `password_env` 或 `password_cmd`，`../paper-mailbox/scripts/mailboxes.py check <地址>` 通过后标 `readable: true`；登记作者用 `mailboxes.py link`，查冲突用 `mailboxes.py audit`（技能 paper-mailbox）。
    - 不能接入的，告诉用户：这篇论文的来信只能由谁转发。
 5. **还是查不到：** 写明试过哪些路径、卡在哪里，交给用户。不能把"没查到"写成"没有变化"。
 

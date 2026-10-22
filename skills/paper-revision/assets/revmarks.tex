@@ -1,0 +1,16 @@
+% Revision marks for a journal revision (paper-revision skill).
+% Load in the preamble with \input{revmarks}; it loads xcolor itself.
+%   \rev{...}                         new or rewritten text of any length (may contain math or span paragraphs)
+%   \begin{revblock} ... \end{revblock}  long new blocks, e.g. a whole new subsection or a new table body
+% Deleted text is simply removed from the source; it is not shown in either version.
+% Clean version: define \cleanversion before this file is read
+% (scripts/build_latex_versions.sh passes \def\cleanversion{} on the command line).
+\RequirePackage{xcolor}
+\providecommand{\revcolor}{red}
+\ifdefined\cleanversion
+  \newcommand{\rev}[1]{#1}
+  \newenvironment{revblock}{}{}
+\else
+  \newcommand{\rev}[1]{{\color{\revcolor}#1}}
+  \newenvironment{revblock}{\color{\revcolor}}{}
+\fi

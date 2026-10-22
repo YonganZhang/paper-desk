@@ -22,10 +22,14 @@
 4. 追加备注前从库里只读取原文（CLI 输出会把凭证打码）；当前情况写 `paper edit --current`。
 5. 改审稿阶段用 `paper progress`，改返修截止用 `review-add --due`；跟进计划只记卡点和下一步。
 
-## 投稿与查稿
+## 投稿、跟进与返修
+- 投稿材料（投稿信、Highlights、作者页、声明）：技能 `paper-submission-kit`。
 - 网上投稿：技能 `paper-submit`。终点动作（Approve／Submit／正式投稿）只在用户对**这一篇**明确批准后单独执行一次；投完登记台账。
 - 查稿和每周报告：技能 `paper-status-check`。只读，不点改变稿件状态的按钮，不回编辑的信；状态以投稿系统列表页为准。
-- 浏览器操作和例行查稿可以交给便宜模型；判断、审阅、终点动作前的核对由主模型或人来做（见 `skills/paper-submit/references/agents-and-models.md`）。
+- 催人跟进：`paper-status-check` 的 `reminders.py`（或周报 `--remind`）。只提醒配置 `people` 里登记的组内人员，先看预览再 `--send`；不给期刊发信。改成你们的规定：哪些跟进方式要提醒（`reminders.modes`）、提前几天提醒返修截止（`due_days`）。
+- 邮箱：技能 `paper-mailbox`。作者邮箱方案先查 `usage`、`audit`；发信先预览，确认后才发。
+- 返修：技能 `paper-revision`。决定信全文和返修截止先录台账（`review-add --stage 大修 --due …`），返修提交后 `progress --stage 返修已提交`；返修不是转投，不新增一轮。
+- 模型分工：技能不绑定模型。浏览器操作和例行查稿可以交给便宜模型（如 Claude Haiku 5.5、Codex 轻量型号）；判断、审阅、终点动作前的核对由主模型（如 Claude Opus / Sonnet 5.5）或人来做（见 `skills/paper-submit/references/agents-and-models.md`）。
 
 ## 边界
 - 投稿系统账号密码只用 secret 名或取密码命令，真值不进命令行、日志、回复和仓库。

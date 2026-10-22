@@ -4,8 +4,10 @@
 只读：不点稿件按钮、不回信、不改投稿状态；系统页读到时给台账记一条 check-in（--no-checkin 关掉）。
 范围：跟进方式为 ai 的在投论文；self（本人自查）列在「不查」；student／watch／partner 只列编号，watch 另提醒返修截止。
 发件人、收件人、主题、称呼、时区、存档目录都在配置的 report 段（references/config.md）。定时运行见 references/weekly-report.md。
-用法：weekly_report.py [--send] [--test] [--no-browser] [--no-checkin] [--days 7]
+用法：weekly_report.py [--send] [--test] [--no-browser] [--no-checkin] [--days 7] [--remind]
 不加 --send 只打印和存档；--test 在邮件主题前加【测试】。存档：<out_dir>/<日期>.md 与 .json。
+--remind：周报之后顺带跑催人跟进（reminders.py，references/reminders.md）；无法提醒的人写进第五节；
+同样只有 --send 才真发，--test 时提醒只预览。
 """
 import argparse
 import json
@@ -20,8 +22,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))   # -I 运行时脚本目录不在 sys.path
 import access_audit as audit  # noqa: E402
 import mail_scan as scan  # noqa: E402
-import mailboxes  # noqa: E402
+import reminders  # noqa: E402
 import settings  # noqa: E402
+from settings import mailboxes  # noqa: E402  paper-mailbox/scripts/mailboxes.py
 import untracked_scan as track  # noqa: E402
 
 CFG, R = settings.CFG, settings.CFG["report"]
@@ -435,6 +438,7 @@ def main():
     ap.add_argument("--no-browser", action="store_true", help="不读投稿系统页面")
     ap.add_argument("--no-checkin", action="store_true", help="不往台账记 check-in")
     ap.add_argument("--days", type=int, default=7, help="扫多少天内的来信（默认 7）")
+    ap.add_argument("--remind", action="store_true", help="周报之后顺带提醒跟进人（遵守 --send；--test 时只预览）")
     a = ap.parse_args()
     if a.send and not (R["from"] and R["to"]):
         sys.exit("--send 需要配置 report.from 和 report.to（见 references/config.md）")
@@ -454,6 +458,11 @@ def main():
     if not CFG["always_scan"]:
         problems.append("配置 always_scan 为空：本次没查台账漏登，也没扫本人邮箱")
     mail_errors.update({k: f"查漏登时{v}" for k, v in track_errors.items() if k not in mail_errors})
+    plan = followups = None
+    if a.remind:
+        followups = paper("followup", "list")["papers"]
+        plan = reminders.build(data, followups, CFG, reminders.load_state(reminders.state_path(CFG)), today)
+        problems += reminders.unreachable_lines(plan)
 
     OUT.mkdir(parents=True, exist_ok=True)
     prevs = sorted(f for f in OUT.glob("*.json") if f.stem < today.isoformat())
@@ -465,7 +474,10 @@ def main():
 
     (OUT / f"{today}.md").write_text(f"# {subject}\n\n{body}\n", encoding="utf-8")
     (OUT / f"{today}.json").write_text(json.dumps({"date": str(today), "system": sysres, "actions": actions, "changes": changes,
-                                                   "mails": mailres, "mail_errors": mail_errors, "problems": problems},
+                                                   "mails": mailres, "mail_errors": mail_errors, "problems": problems,
+                                                   "reminders": plan and {"mails": [{"name": m["name"], "items": m["items"]}
+                                                                                    for m in plan["mails"]],
+                                                                          "unreachable": plan["unreachable"]}},
                                                   ensure_ascii=False, indent=1, default=str), encoding="utf-8")
     if not a.no_checkin:
         for code, r in sysres.items():
@@ -486,6 +498,10 @@ def main():
         except (mailboxes.MailboxError, OSError) as e:   # 含 SMTP 错误；发信失败要让定时任务以非零退出，日志里看得到
             sys.exit(f"发信失败：{type(e).__name__}: {e}")
         print(f"已发送 → {', '.join(to)}")
+    if plan is not None:
+        print("\n── 催人跟进 ──" + ("（--test：提醒只预览，不发给跟进人）" if a.test and a.send else ""))
+        if reminders.deliver(plan, CFG, followups, send=a.send and not a.test, accounts=accounts):
+            sys.exit("有提醒没发出，见上面的错误")
 
 
 if __name__ == "__main__":

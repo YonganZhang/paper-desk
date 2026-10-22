@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 把 PaperDesk 的三个技能装进 Claude Code / Codex 的技能目录（默认软链，便于 git pull 后自动更新）。
+# 把 PaperDesk 的六个技能装进 Claude Code / Codex 的技能目录（默认软链，便于 git pull 后自动更新）。
 # 用法：bash install.sh [--claude] [--codex] [--copy]
 #   不带 --claude/--codex 时两边都装；--copy 复制而不是软链。台账程序的安装见 ledger/README.md。
 set -euo pipefail
@@ -17,7 +17,7 @@ done
 [ ${#targets[@]} -gt 0 ] || targets=("$HOME/.claude/skills" "$HOME/.agents/skills")
 for t in "${targets[@]}"; do
   mkdir -p "$t"
-  for s in paper-ledger paper-submit paper-status-check; do
+  for s in paper-ledger paper-submit paper-status-check paper-mailbox paper-submission-kit paper-revision; do
     dst="$t/$s"
     if [ -e "$dst" ] || [ -L "$dst" ]; then echo "跳过 $dst（已存在，先自行移走）"; continue; fi
     if [ "$mode" = copy ]; then cp -r "$here/skills/$s" "$dst"; else ln -s "$here/skills/$s" "$dst"; fi

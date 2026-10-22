@@ -1,12 +1,13 @@
 # 配置
 
-本技能有两份 JSON 配置和一组环境变量。配置里只写环境变量名或取密码命令，不写密码真值。
+本技能用两份 JSON 配置和一组环境变量；邮箱登记属于技能 `paper-mailbox`。配置里只写环境变量名或取密码命令，不写密码真值。
 
 | 文件 | 位置（环境变量覆盖） | 示例 |
 |---|---|---|
 | 查稿配置 | `PAPER_STATUS_CONFIG`，默认 `~/.config/paper-desk/status-check.json` | `assets/status-check.example.json` |
-| 邮箱登记 | `PAPER_MAILBOXES`，默认 `~/.config/paper-desk/mailboxes.json`（建议 chmod 600） | `assets/mailboxes.example.json` |
+| 邮箱登记 | `PAPER_MAILBOXES`，默认 `~/.config/paper-desk/mailboxes.json`（建议 chmod 600） | `../paper-mailbox/assets/mailboxes.example.json` |
 | 投稿账号登记 | `$PAPER_SUBMIT_HOME/accounts.json`，与 paper-submit 共用 | paper-submit 的 `assets/accounts.example.json` |
+| 催人跟进去重状态 | `reminders.state_file`，默认 `<work_dir>/reminders-state.json` | 脚本自动生成 |
 | 定时任务环境 | `~/.config/paper-desk/status-check.env`（systemd `EnvironmentFile`） | `assets/status-check.env.example` |
 
 查稿配置不存在时脚本按默认值运行，并在 stderr 提示；邮箱登记不存在时，扫信类脚本报错退出（体检脚本把邮箱一项全按未登记处理）。
@@ -30,27 +31,27 @@
 | `report.schedule_label` | `每周一` | 页脚里的发送频率说明 |
 | `report.timezone` | 空（服务器本地时区） | IANA 时区名，例如 `Asia/Shanghai` |
 | `report.out_dir` | `~/.local/share/paper-desk/weekly-status` | 报告存档目录（`<日期>.md` 与 `.json`，下周拿 json 对比状态变化） |
+| `people` | `{}` | 提醒收件人：`{姓名: {email, role, cc_owner}}`。姓名与台账「负责人」一致（带「（…）」后缀的会去掉后缀再找）。`role` 自由填写（`owner`、`student`、`member`…），`external` 表示合著者等外部人员；`cc_owner: true` 时给这个人的提醒抄送本人。没登记的人不提醒、不猜邮箱 |
+| `reminders.modes` | `["student","watch","ai"]` | 哪些跟进方式要提醒负责人；`self`、`partner` 默认不提醒 |
+| `reminders.due_days` | `14` | 返修截止前多少天起提醒（已逾期也提醒） |
+| `reminders.stalled_days` | `60` | 在审（跟进阶段 submitted / under_review）多少天没有进展时提醒负责人考虑问编辑部 |
+| `reminders.blocked_stages` | `["awaiting_author","waiting_support","awaiting_close"]` | 跟进计划停在这些卡点时提醒负责人 |
+| `reminders.waiting_pattern` | `等.{0,12}(作者\|合著者\|老师\|同学\|学生\|确认\|签字\|回复)` | `waiting_for` 命中这个正则，或写了 `people` 里的姓名，也算卡点；空串关掉 |
+| `reminders.min_interval_days` | `7` | 同一（编号, 提醒类型, 截止日）多少天内不重复发 |
+| `reminders.include_external` | `false` | `people` 里 `role: external` 的人是否提醒 |
+| `reminders.owner` | 空（取 `self_names` 第一个） | 本人在 `people` 里的姓名；旧轮未关闭时总会提醒本人 |
+| `reminders.from` | 空（用 `report.from`） | 提醒发件邮箱，须在邮箱登记里配了 `smtp` |
+| `reminders.subject` | `论文跟进提醒（{date}）：{count} 项` | 主题模板，可用 `{name}`、`{date}`、`{count}` |
+| `reminders.greeting` | `{name}您好：` | 称呼模板 |
+| `reminders.signature` | `——` 加一句「只提醒组内跟进人」的说明 | 落款模板，可用 `{sender_label}`、`{date}` |
+| `reminders.sender_label` | 空（用 `report.sender_label`） | 落款里的机器称呼 |
+| `reminders.state_file` | 空（`<work_dir>/reminders-state.json`） | 去重状态文件 |
+
+规则、示例邮件和边界见 [reminders.md](reminders.md)。
 
 ## 邮箱登记 `mailboxes.json`
 
-顶层是 `{"mailboxes": {地址: 配置}}`（也接受直接的 `{地址: 配置}`）；以 `_` 开头的键当注释忽略。
-
-| 字段 | 含义 |
-|---|---|
-| `imap` | `host[:port]`，默认端口 993，IMAP over SSL |
-| `smtp` | `host[:port]`；只发信的邮箱需要 |
-| `smtp_tls` | `ssl`（默认，465）或 `starttls`（587） |
-| `username` | 登录名，默认就是地址 |
-| `password_env` | 存密码或授权码的环境变量名 |
-| `password_cmd` | 取密码的命令，stdout（去掉首尾空白）即密码（例如 `pass show mail/xxx`）；`password_env` 为空时才用 |
-| `auth` + `token_cmd` | `auth: "xoauth2"` 时用 SASL XOAUTH2，`token_cmd` 输出当前有效的 access token。本技能不实现 OAuth 授权和续期，Outlook、Gmail OAuth 这类请用你自己的取 token 工具 |
-| `readable` | `true` 表示已实测能读。先跑 `scripts/mailboxes.py check <地址>`，通过再手动标上。扫信和体检只认它 |
-| `checked_at` | 上次实测日期（可选，体检里显示） |
-| `owner`、`purpose` | 邮箱归谁、用途（会议专用、本人专用、临时合作者备用…）。录作者前对照它 |
-| `author_links` | `[{person, role, papers: [编号…]}]`：这个邮箱在哪几篇论文里代表谁、什么角色（`投稿人`、`通讯`、`合著者`）。体检按 role 里有没有「投稿人」「通讯」判断关键邮箱 |
-| `exceptions` | `[{person, papers, scope, reason, remind: "near-acceptance"}]`：用途不符但用户批准的临时借用；稿件到 `near_acceptance_stages` 时每周报告提醒改回 |
-
-网易系邮箱（163、126、yeah.net）登录后要先发 IMAP ID 命令，`mailboxes.py` 已处理。Gmail 应用专用密码存成不带空格的形式。
+字段（凭证来源、`readable`、`owner`/`purpose`、`author_links`、`exceptions`）和 `audit` 规则见技能 `paper-mailbox` 的 [references/registry.md](../../paper-mailbox/references/registry.md)。查稿只认 `readable: true` 且 `author_links` 关联到本篇的邮箱。
 
 ## 环境变量汇总
 

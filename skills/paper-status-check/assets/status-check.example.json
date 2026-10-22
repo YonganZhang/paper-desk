@@ -16,5 +16,23 @@
     "schedule_label": "每周一 10:00",
     "timezone": "Asia/Shanghai",
     "out_dir": "~/.local/share/paper-desk/weekly-status"
+  },
+  "people": {
+    "张三": {"email": "alice@example.com", "role": "owner"},
+    "李四": {"email": "lisi@example.com", "role": "student", "cc_owner": true},
+    "王五": {"email": "wangwu@example.org", "role": "external"}
+  },
+  "reminders": {
+    "modes": ["student", "watch", "ai"],
+    "due_days": 14,
+    "stalled_days": 60,
+    "blocked_stages": ["awaiting_author", "waiting_support", "awaiting_close"],
+    "min_interval_days": 7,
+    "include_external": false,
+    "owner": "张三",
+    "from": "alice@example.com",
+    "subject": "论文跟进提醒（{date}）：{count} 项",
+    "greeting": "{name}您好：",
+    "signature": "——\n本邮件由{sender_label}自动发送，只提醒组内跟进人，不会替您联系期刊或编辑部。"
   }
 }

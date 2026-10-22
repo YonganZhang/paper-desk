@@ -38,7 +38,7 @@
 
 规则：
 - **投稿人和通讯作者**：必须用服务器读得到的邮箱。
-  - 判断标准：邮箱凭证已配置，而且实测能收信。用查稿技能的邮箱适配时，就是 `mailboxes.json` 里有这个地址，`../paper-status-check/scripts/mailboxes.py check <地址>`（路径相对本技能目录）通过，并把该条标成 `"readable": true`。
+  - 判断标准：邮箱凭证已配置，而且实测能收信。用邮箱技能 `paper-mailbox` 时，就是 `mailboxes.json` 里有这个地址，`../paper-mailbox/scripts/mailboxes.py check <地址>`（路径相对本技能目录）通过，并把该条标成 `"readable": true`。
   - 提交后，期刊可能发作者确认信、发退修信，读不到就会卡住。
 - **账号身份**：
   - 投稿账号的档案姓名会成为系统里的通讯作者。
@@ -51,11 +51,11 @@
   - 「同一个系统」按账号库算：每个刊的 Editorial Manager 站点各是一个；JournalX、方正按刊各是一个；Elsevier ID、ORCID 这类跨刊统一登录本身也是一个。邮箱在 Elsevier ID 下绑了谁，所有用 Elsevier ID 登录的刊里它都只能是这个人；同一个邮箱在不走 Elsevier ID 的刊（例如某刊 EM 的独立账号）里可以是另一个人，但在那个刊不要用 Elsevier 登录按钮登这个邮箱。
   - 为什么：系统按邮箱认人。同一系统里一个邮箱挂两个人，合著者确认信、退修信会落到错的人头上，系统 PDF 的通讯作者也可能变成别人；跨系统复用不会互相串。
   - 期刊转投（transfer）会把原稿的作者和邮箱原样带到新刊，新刊和原刊同属一个统一登录层时按同一个系统处理。
-  - 记录：每个系统里「邮箱 → 人」记在 `$PAPER_SUBMIT_HOME/accounts.json`（每个系统一条），每篇里「人 → 邮箱」记在邮箱登记的 `author_links`（`mailboxes.json`，字段见 `../paper-status-check/references/config.md`）。录作者前两处都查；发现同一系统里冲突，或邮箱用途和登记不符，先报给用户再录。
+  - 记录：每个系统里「邮箱 → 人」记在 `$PAPER_SUBMIT_HOME/accounts.json`（每个系统一条），每篇里「人 → 邮箱」记在邮箱登记的 `author_links`（`mailboxes.json`，字段见 `../paper-mailbox/references/registry.md`）。录作者前两处都查：`../paper-mailbox/scripts/mailboxes.py usage <地址>` 看这个邮箱已绑了谁，`mailboxes.py audit` 查冲突；发现同一系统里冲突，或邮箱用途和登记不符，先报给用户再录。
 - **借用和替代**：作者没有可用邮箱，用户同意借用自管邮箱时，要记清楚谁借了哪个邮箱。
   - 把自管邮箱的密码交给他人前，提醒用户：这个邮箱里有其他稿件的系统邮件。
   - 所有投稿账号共用同一个密码时，邮箱一旦外借，等于其他账号也一起暴露了。
-- **登记**：确认后的地址登记进邮箱登记；新拿到的授权码存进你们的凭证库，配置里只写环境变量名或取密码命令。
+- **登记**：确认后的地址用 `mailboxes.py link <地址> --paper <编号> --person <姓名> --role <角色>` 登记进邮箱登记；新拿到的授权码存进你们的凭证库，配置里只写环境变量名或取密码命令。
 
 ## 3.1 共同通讯作者
 
